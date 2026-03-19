@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="../css/payment.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
+
 <body>
     <div class="payment-container">
         <div class="payment-card">
@@ -15,11 +17,11 @@
             </div>
             <h2>Secure Checkout</h2>
             <p style="color: var(--text-gray);">Review your items and complete payment</p>
-            
+
             <div class="order-summary">
                 <h4>Order Summary</h4>
                 <div id="orderItems">
-                    </div>
+                </div>
             </div>
 
             <div class="total-section">
@@ -30,15 +32,18 @@
             <button class="btn btn-pay" onclick="processPayment()">
                 Confirm & Pay
             </button>
-            
+
             <a href="student.html" class="back-link">
                 <i class="fas fa-arrow-left"></i> Edit Order
             </a>
         </div>
     </div>
 
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="../js/api.js"></script>
     <script src="../js/payment.js"></script>
 </body>
+
 </html>

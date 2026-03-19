@@ -1,5 +1,5 @@
-const API_BASE = window.location.hostname === 'localhost' 
-    ? 'http://localhost:5000/api' 
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000/api'
     : 'https://food-court-service-backend.onrender.com/api';
 
 const api = {
@@ -17,7 +17,7 @@ const api = {
 
         try {
             const res = await axios(config);
-            return res.data; 
+            return res.data;
         } catch (err) {
             console.error("API Error:", err);
             throw err;
@@ -26,7 +26,7 @@ const api = {
 
     // --- Auth Login ---
     login: (credentials) => api.request('POST', '/auth/login', credentials),
-    
+
     // --- Menu Methods ---
     getMenu: () => api.request('GET', '/menu/today'),
     getAllMenuItems: () => api.request('GET', '/menu/manage/all'),
@@ -39,5 +39,10 @@ const api = {
     // --- NEW: Admin User Management Methods ---
     getUsers: () => api.request('GET', '/admin/users'),
     addUser: (userData) => api.request('POST', '/admin/users', userData),
-    deleteUser: (id) => api.request('DELETE', `/admin/users/${id}`)
+    deleteUser: (id) => api.request('DELETE', `/admin/users/${id}`),
+
+    // --- Payment, Order---
+    placeOrder: (data) => api.request('POST', '/orders', data),
+    createRazorpayOrder: (data) => api.request('POST', '/payment/create-order', data),
+    verifyRazorpayPayment: (data) => api.request('POST', '/payment/verify', data),
 };

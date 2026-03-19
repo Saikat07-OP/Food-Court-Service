@@ -1,5 +1,6 @@
 const express = require('express');
 const Razorpay = require('razorpay');
+const crypto = require('crypto');
 const QRCode = require('qrcode');
 const { body, validationResult } = require('express-validator');
 const Payment = require('../models/Payment');
@@ -8,13 +9,15 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Initialize Razorpay
+// Initialize Razorpay using your .env keys
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
-// Create payment order
+// ==========================================
+// 1. CREATE PAYMENT ORDER
+// ==========================================
 router.post('/create-order', authenticate, [
   body('order_id').notEmpty().withMessage('Order ID is required')
 ], async (req, res) => {
@@ -38,7 +41,7 @@ router.post('/create-order', authenticate, [
 
     // Create Razorpay order
     const razorpayOrder = await razorpay.orders.create({
-      amount: order.total_amount * 100, // Convert to paise
+      amount: order.total_amount * 100, // Razorpay expects amount in paise (₹1 = 100 paise)
       currency: 'INR',
       receipt: order.order_id,
       notes: {
@@ -47,7 +50,7 @@ router.post('/create-order', authenticate, [
       }
     });
 
-    // Create payment record
+    // Create a pending payment record in your database
     const payment = new Payment({
       payment_id: `PAY_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
       order_id: order.order_id,
@@ -64,7 +67,8 @@ router.post('/create-order', authenticate, [
       message: 'Payment order created successfully',
       razorpay_order: razorpayOrder,
       payment_id: payment.payment_id,
-      amount: order.total_amount
+      amount: order.total_amount,
+      key_id: process.env.RAZORPAY_KEY_ID
     });
   } catch (error) {
     console.error('Create payment order error:', error);
@@ -72,7 +76,9 @@ router.post('/create-order', authenticate, [
   }
 });
 
-// Verify payment and generate QR code
+// ==========================================
+// 2. VERIFY PAYMENT & GENERATE QR CODE
+// ==========================================
 router.post('/verify', authenticate, [
   body('razorpay_order_id').notEmpty().withMessage('Razorpay order ID is required'),
   body('razorpay_payment_id').notEmpty().withMessage('Razorpay payment ID is required'),
@@ -85,21 +91,15 @@ router.post('/verify', authenticate, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      payment_id
-    } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, payment_id } = req.body;
 
-    // Get payment record
+    // Get the pending payment record
     const payment = await Payment.findOne({ payment_id, user_id: req.user._id });
     if (!payment) {
       return res.status(404).json({ message: 'Payment record not found' });
     }
 
-    // Verify payment signature
-    const crypto = require('crypto');
+    // Verify payment signature securely
     const generated_signature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
@@ -109,7 +109,7 @@ router.post('/verify', authenticate, [
       return res.status(400).json({ message: 'Invalid payment signature' });
     }
 
-    // Update payment record
+    // Update payment record to successful
     payment.payment_gateway_id = razorpay_payment_id;
     payment.status = 'captured';
     payment.payment_time = new Date();
@@ -126,7 +126,7 @@ router.post('/verify', authenticate, [
     order.payment_id = payment_id;
     await order.save();
 
-    // Generate QR code data
+    // Generate specific QR code data for the canteen staff to scan
     const qrData = {
       order_id: order.order_id,
       payer_name: req.user.name,
@@ -140,10 +140,10 @@ router.post('/verify', authenticate, [
       payment_time: payment.payment_time
     };
 
-    // Generate QR code
+    // Generate the Base64 QR code image
     const qrCodeDataUrl = await QRCode.toDataURL(JSON.stringify(qrData));
 
-    // Save QR code data to order
+    // Save QR code data string to the order
     order.qr_code_data = JSON.stringify(qrData);
     await order.save();
 
@@ -160,7 +160,9 @@ router.post('/verify', authenticate, [
   }
 });
 
-// Get payment history
+// ==========================================
+// 3. GET PAYMENT HISTORY (Student)
+// ==========================================
 router.get('/history', authenticate, async (req, res) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
@@ -193,13 +195,16 @@ router.get('/history', authenticate, async (req, res) => {
   }
 });
 
-// Get payment by ID
+// ==========================================
+// 4. GET SINGLE PAYMENT BY ID
+// ==========================================
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user._id;
 
     let payment;
+    // Admins and staff can view any payment; Students can only view their own
     if (req.user.role === 'admin' || req.user.role === 'staff') {
       payment = await Payment.findById(id);
     } else {
@@ -220,7 +225,9 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-// Process refund (admin only)
+// ==========================================
+// 5. PROCESS REFUND (Admin Only)
+// ==========================================
 router.post('/:id/refund', authenticate, authorize('admin'), [
   body('refund_amount').isNumeric().withMessage('Refund amount must be a number').isFloat({ min: 0 }).withMessage('Refund amount must be positive')
 ], async (req, res) => {
@@ -246,7 +253,7 @@ router.post('/:id/refund', authenticate, authorize('admin'), [
       return res.status(400).json({ message: 'Refund amount cannot exceed payment amount' });
     }
 
-    // Process refund with Razorpay
+    // Process refund directly with Razorpay
     try {
       const refund = await razorpay.payments.refund(payment.payment_gateway_id, {
         amount: refund_amount * 100 // Convert to paise
@@ -281,7 +288,9 @@ router.post('/:id/refund', authenticate, authorize('admin'), [
   }
 });
 
-// Get all payments (admin/staff only)
+// ==========================================
+// 6. GET ALL PAYMENTS (Admin/Staff Only)
+// ==========================================
 router.get('/manage/all', authenticate, authorize('admin', 'staff'), async (req, res) => {
   try {
     const { page = 1, limit = 20, status, date, userId } = req.query;
@@ -290,6 +299,8 @@ router.get('/manage/all', authenticate, authorize('admin', 'staff'), async (req,
     let filter = {};
     if (status) filter.status = status;
     if (userId) filter.user_id = userId;
+
+    // Date filtering logic
     if (date) {
       const targetDate = new Date(date);
       const startOfDay = new Date(targetDate);

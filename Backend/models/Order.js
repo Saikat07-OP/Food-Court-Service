@@ -74,13 +74,16 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Generate unique order ID
-orderSchema.pre('save', function(next) {
+orderSchema.pre('save', async function() { 
+  // Notice we removed 'next' from the parentheses!
+  
   if (this.isNew && !this.order_id) {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
     this.order_id = `ORD${timestamp}${random}`;
   }
-  next();
+  
+  // No next() needed here anymore! Modern Mongoose handles it automatically.
 });
 
 // Index for efficient queries

@@ -1,14 +1,13 @@
 const dns = require('dns');
 // Force Node to use Google's Public DNS
 dns.setServers(['8.8.8.8', '8.8.4.4']);
-
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const adminRoutes = require('./routes/admin');
-require('dotenv').config();
-
+const paymentRoutes = require('./routes/payment');
 
 
 
@@ -32,6 +31,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/menu', require('./routes/menu'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/admin', adminRoutes);
+app.use('/api/payment', paymentRoutes);
 // Add other routes (users, staff) here as needed
 
 // 2. Default Route: Send users to login.html

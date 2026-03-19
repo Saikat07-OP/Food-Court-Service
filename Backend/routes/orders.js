@@ -18,7 +18,8 @@ router.post('/', authenticate, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { items, notes } = req.body;
+    // Extract everything safely, including the order_id we send from the frontend
+    const { items, notes, order_id } = req.body;
     const userId = req.user._id;
 
     // Get today's menu
@@ -39,14 +40,14 @@ router.post('/', authenticate, [
       });
 
       if (!menuItem) {
-        return res.status(400).json({ 
-          message: `Dish "${item.dish_name}" is not available today` 
+        return res.status(400).json({
+          message: `Dish "${item.dish_name}" is not available today`
         });
       }
 
       if (menuItem.available_quantity < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient quantity for "${item.dish_name}". Available: ${menuItem.available_quantity}` 
+        return res.status(400).json({
+          message: `Insufficient quantity for "${item.dish_name}". Available: ${menuItem.available_quantity}`
         });
       }
 
@@ -60,15 +61,21 @@ router.post('/', authenticate, [
       totalAmount += subtotal;
     }
 
-    // Create order
+    // Generate an ID if the frontend forgot it somehow
+    const finalOrderId = order_id || ("ORD" + Date.now() + Math.floor(Math.random() * 1000));
+
+    // Create order with explicit defaults to satisfy strict MongoDB schemas
     const order = new Order({
+      order_id: finalOrderId,
       user_id: userId,
       items: validatedItems,
       total_amount: totalAmount,
-      notes
+      notes: notes || "",
+      order_status: 'pending',     // Explicitly set
+      payment_status: 'pending'    // Explicitly set
     });
 
-    await order.save();
+    await order.save(); // <--- If it crashes here, our catch block will catch it!
 
     // Update menu quantities
     for (const item of validatedItems) {
@@ -83,8 +90,14 @@ router.post('/', authenticate, [
       order
     });
   } catch (error) {
-    console.error('Create order error:', error);
-    res.status(500).json({ message: 'Server error while creating order' });
+    // THIS IS THE MAGIC LINE: It will print the exact reason to your VS Code terminal!
+    console.error('🔥 EXACT CRASH REASON:', error.stack);
+
+    // We also send the specific error back to the frontend so it shows in the alert box
+    res.status(500).json({
+      message: 'Database error while creating order',
+      details: error.message
+    });
   }
 });
 
@@ -178,8 +191,8 @@ router.patch('/:id/status', authenticate, authorize('staff', 'admin'), [
     };
 
     if (!validTransitions[order.order_status].includes(status)) {
-      return res.status(400).json({ 
-        message: `Cannot change status from "${order.order_status}" to "${status}"` 
+      return res.status(400).json({
+        message: `Cannot change status from "${order.order_status}" to "${status}"`
       });
     }
 
@@ -254,14 +267,14 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
     }
 
     if (order.order_status !== 'pending') {
-      return res.status(400).json({ 
-        message: 'Cannot cancel order. Order is already being processed.' 
+      return res.status(400).json({
+        message: 'Cannot cancel order. Order is already being processed.'
       });
     }
 
     if (order.payment_status === 'paid') {
-      return res.status(400).json({ 
-        message: 'Cannot cancel paid order. Please request a refund.' 
+      return res.status(400).json({
+        message: 'Cannot cancel paid order. Please request a refund.'
       });
     }
 

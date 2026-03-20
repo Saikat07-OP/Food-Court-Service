@@ -27,11 +27,13 @@ mongoose.connect(process.env.MONGODB_URI)
     .catch(err => console.log("DB Error:", err));
 
 // Routes
+// Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/menu', require('./routes/menu'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/admin', adminRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/staff', require('./routes/staff'));
 // Add other routes (users, staff) here as needed
 
 // 2. Default Route: Send users to login.html

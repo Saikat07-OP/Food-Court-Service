@@ -2,12 +2,11 @@ let html5QrcodeScanner;
 let currentScannedOrderId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Show correct User Role and Name
+    // Set the Staff Name tag in the top right
     const user = JSON.parse(localStorage.getItem('user'));
     if (user) {
-        const userRole = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Staff';
         const userName = user.name || 'Member';
-        document.getElementById('staffName').textContent = `${userRole} | ${userName}`;
+        document.getElementById('staffName').textContent = `Staff | ${userName}`;
     }
     showSection('scan');
     startScanner();
@@ -42,9 +41,11 @@ function onScanSuccess(decodedText, decodedResult) {
 
     try {
         const orderData = JSON.parse(decodedText);
+        
+        // 🔥 Grab the exact ORD ID your backend expects
         currentScannedOrderId = orderData.order_id;
 
-        // Populate the Modern UI
+        // Populate the UI
         document.getElementById('dispOrderId').innerText = orderData.order_id || "N/A";
         document.getElementById('dispName').innerText = orderData.payer_name || "Student";
 
@@ -59,10 +60,8 @@ function onScanSuccess(decodedText, decodedResult) {
         document.getElementById('orderVerifyCard').style.display = 'block';
 
     } catch (err) {
-        console.error("🔥 SCANNER FAILED TO PARSE JSON!");
-        console.error("The exact text the camera read was: ", decodedText);
-        alert("Invalid QR Code Data! Please check the console (F12) to see what text it found.");
-        
+        console.error("Scanner failed to parse text:", decodedText);
+        alert("Invalid QR Code Data! Please check the console.");
         document.getElementById('reader').style.display = 'block';
         startScanner();
     }
@@ -80,10 +79,18 @@ async function confirmServe() {
     btn.disabled = true;
 
     try {
-        // We use your custom 'api' wrapper here! 
-        // It automatically adds the security token and uses the correct Render URL.
-        // NOTE: Make sure this route matches your backend (it looks like you used /staff/:id/serve previously)
-        await api.patch(`/staff/${currentScannedOrderId}/serve`);
+        const backendURL = 'https://food-court-service-backend.onrender.com';
+        
+        const token = localStorage.getItem('token'); 
+        
+        await axios.patch(`${backendURL}/api/staff/${currentScannedOrderId}/serve`, 
+            {}, 
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}` 
+                }
+            }
+        );
 
         alert("Order completed! Food has been served.");
 
@@ -98,10 +105,7 @@ async function confirmServe() {
         startScanner();
 
     } catch (err) {
-        // This will print the exact reason the backend rejected it into your console
         console.error("Confirm Serve Error details:", err.response || err);
-        
-        // Try to show the exact message from the backend if it exists
         const errorMsg = err.response?.data?.message || "Server Error! Could not update order status.";
         alert(errorMsg);
         

@@ -3,7 +3,7 @@ let currentScannedOrderId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     // Set the Staff Name tag in the top right
-    const user = JSON.parse(localStorage.getItem('user'));
+    const user = JSON.parse(sessionStorage.getItem('user'));
     if (user) {
         const userName = user.name || 'Member';
         document.getElementById('staffName').textContent = `Staff | ${userName}`;
@@ -81,7 +81,7 @@ async function confirmServe() {
     try {
         const backendURL = 'https://food-court-service-backend.onrender.com';
         
-        const token = localStorage.getItem('token'); 
+        const token = sessionStorage.getItem('token'); 
         
         await axios.patch(`${backendURL}/api/staff/${currentScannedOrderId}/serve`, 
             {}, 
@@ -136,6 +136,6 @@ function showToast(message, isError = false) {
 }
 
 function logout() {
-    localStorage.clear();
+    sessionStorage.clear();
     window.location.href = 'login.html'; 
 }

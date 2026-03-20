@@ -1,6 +1,6 @@
 let cart = [];
 document.addEventListener('DOMContentLoaded', () => {
-    const user = JSON.parse(localStorage.getItem('user'));
+    const user = JSON.parse(sessionStorage.getItem('user'));
     if (!user) {
         window.location.href = 'login.html';
         return;
@@ -43,14 +43,14 @@ async function loadMenu() {
             items.forEach(item => {
                 const defaultImage = 'https://imgs.search.brave.com/eJrOBBqXjPdhO8ejCg9Vz4Tkubh4-rLONNGdACLq9vQ/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9wbHVz/LnVuc3BsYXNoLmNv/bS9wcmVtaXVtX3Zl/Y3Rvci0xNzEzMzY0/MzkzMDg1LTBmZGRh/MTNlYzdjZD9mbT1q/cGcmcT02MCZ3PTMw/MDAmaXhsaWI9cmIt/NC4xLjA';
                 const imgSrc = item.image_url || defaultImage;
-                
+
                 const stockQty = item.available_quantity || 0;
-                const stockDisplay = stockQty > 0 
-                    ? `<span style="color: #10b981; font-size: 0.8rem; font-weight: 700;"><i class="fas fa-box"></i> ${stockQty} Available</span>` 
+                const stockDisplay = stockQty > 0
+                    ? `<span style="color: #10b981; font-size: 0.8rem; font-weight: 700;"><i class="fas fa-box"></i> ${stockQty} Available</span>`
                     : `<span style="color: #ef4444; font-size: 0.8rem; font-weight: 700;"><i class="fas fa-times-circle"></i> Sold Out</span>`;
-                
+
                 const buttonHtml = stockQty > 0
-                    ? `<button class="btn" onclick="addToCart('${item._id}', '${item.dish_name}', ${item.price})">Add +</button>`
+                    ? `<button class="btn" onclick="addToCart('${item._id}', '${item.dish_name}', ${item.price}, ${stockQty})">Add +</button>`
                     : `<button class="btn" style="background: var(--border); color: var(--text-gray); cursor: not-allowed;" disabled>Empty</button>`;
 
                 html += `
@@ -82,14 +82,23 @@ async function loadMenu() {
         console.error("Menu Load Error:", err); // Helpful for debugging
     }
 }
-function addToCart(id, name, price) {
+function addToCart(id, name, price, maxStock) {
     const existing = cart.find(i => i.id === id);
+    const currentQty = existing ? existing.qty : 0;
+
+    if (currentQty >= maxStock) {
+        showToast(`Sorry, only ${maxStock} ${name} available!`, "error");
+        return;
+    }
+
     if (existing) {
         existing.qty++;
     } else {
         cart.push({ id, dish_name: name, price, qty: 1 });
     }
+
     updateCartUI();
+    showToast(`${name} added to cart!`, "success");
 }
 function updateCartUI() {
     const count = cart.reduce((sum, item) => sum + item.qty, 0);
@@ -158,7 +167,7 @@ async function loadHistory() {
             <div style="border-bottom:1px solid var(--border); padding: 15px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap;">
                 <div>
                     <strong>Order #${order.order_id || 'N/A'}</strong>
-                    <p style="font-size:0.85rem; color:var(--text-gray);">₹${order.total_amount} | ${new Date(order.order_date).toLocaleDateString()}</p>
+                    <p style="font-size:0.85rem; color:var(--text-gray);">₹${order.total_amount} | ${new Date(order.order_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</p>
                     ${qrBtnHtml}
                 </div>
                 <div style="text-align: right;">
@@ -178,12 +187,15 @@ async function loadHistory() {
     }
 }
 function logout() {
-    localStorage.clear();
+    sessionStorage.clear();
     window.location.href = 'login.html';
 }
 
 function viewCart() {
-    if (cart.length === 0) return alert("Cart is empty!");
+    if (cart.length === 0) {
+        return showToast("Your cart is empty!", "error");
+    }
+
     const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
     sessionStorage.setItem('pendingOrder', JSON.stringify({
         items: cart,
@@ -191,19 +203,74 @@ function viewCart() {
     }));
     window.location.href = 'payment.html';
 }
+
 function openQrModal(encodedQrData) {
     if (!encodedQrData || encodedQrData === 'undefined') {
         alert("QR Code is still generating or missing.");
         return;
     }
-    
+
     // Decode the data back to normal text
     const rawData = decodeURIComponent(encodedQrData);
-    
+
     // Call the free QR generation API
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(rawData)}`;
-    
+
     // Update the image source and show the modal box
     document.getElementById('modalQrImage').src = qrImageUrl;
     document.getElementById('qrModal').style.display = 'block';
+}
+
+// ==========================================
+// POPUP NOTIFICATION SYSTEM (FIXED)
+// ==========================================
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    container.style.cssText = `
+        position: fixed; 
+        bottom: 30px; 
+        left: 50%; 
+        transform: translateX(-50%); 
+        z-index: 9999; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        gap: 10px;
+        pointer-events: none; /* Lets you click through the invisible box */
+    `;
+
+    const toast = document.createElement('div');
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-times-circle';
+
+    toast.innerHTML = `<i class="fas ${icon}" style="font-size: 1.2rem;"></i> <span style="margin-left: 10px; white-space: nowrap;">${message}</span>`;
+
+    toast.style.cssText = `
+        background-color: ${type === 'success' ? '#10b981' : '#ef4444'};
+        color: #ffffff; 
+        padding: 14px 24px; 
+        border-radius: 8px;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);
+        display: flex; 
+        align-items: center; 
+        font-size: 1rem;
+        font-weight: 500;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.3s ease-out;
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    }, 10);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }

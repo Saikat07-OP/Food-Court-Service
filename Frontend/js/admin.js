@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 2. INITIALIZATION & NAVIGATION
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    const user = JSON.parse(localStorage.getItem('user'));
+    const user = JSON.parse(sessionStorage.getItem('user'));
 
     // Security Kick-out
     if (!user || user.role !== 'admin') {
@@ -101,7 +101,7 @@ function showSection(sectionId) {
 // ==========================================
 async function loadOverview() {
     try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const backendURL = 'https://food-court-service-backend.onrender.com'; // Your live Render URL
 
         // 1. Fetch Summary Stats for Orders and Revenue
@@ -129,7 +129,7 @@ async function loadOverview() {
                     <div>
                         <strong style="color: var(--text-dark);">#${order.order_id || 'Unknown'}</strong>
                         <p style="font-size: 0.8rem; color: var(--text-gray); margin-top: 2px;">
-                            ${order.user_id ? order.user_id.name : 'Deleted User'}
+                            ${order.user_id ? order.user_id.name : 'Deleted User'} &bull; ${new Date(order.order_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                         </p>
                     </div>
                     <div style="text-align: right;">
@@ -320,11 +320,11 @@ let currentStockUpdateId = null;
 // 1. Open the beautiful modal instead of an alert
 function triggerUpdateStock(id, dishName, currentQty) {
     currentStockUpdateId = id;
-    
+
     // Fill the modal with the current info
     document.getElementById('stockDishName').textContent = dishName;
     document.getElementById('newStockInput').value = currentQty;
-    
+
     // Show the modal
     document.getElementById('stockModal').style.display = 'block';
 }
@@ -339,7 +339,7 @@ function closeStockModal() {
 async function submitUpdateStock() {
     const newQtyStr = document.getElementById('newStockInput').value;
     const dishName = document.getElementById('stockDishName').textContent;
-    
+
     if (newQtyStr.trim() === '') return showToast("Quantity cannot be empty.", "error");
 
     const newQty = parseInt(newQtyStr, 10);
@@ -348,19 +348,19 @@ async function submitUpdateStock() {
     }
 
     try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const backendURL = 'https://food-court-service-backend.onrender.com';
-        
-        await axios.put(`${backendURL}/api/menu/${currentStockUpdateId}`, 
-            { available_quantity: newQty }, 
+
+        await axios.put(`${backendURL}/api/menu/${currentStockUpdateId}`,
+            { available_quantity: newQty },
             { headers: { 'Authorization': `Bearer ${token}` } }
         );
 
         showToast(`${dishName} stock updated to ${newQty}!`, "success");
-        
+
         closeStockModal();
         loadAdminMenu(); // Refresh the cards to show the new number!
-        
+
     } catch (err) {
         console.error("Update Stock Error:", err);
         showToast(err.response?.data?.message || "Failed to update stock.", "error");
@@ -389,7 +389,7 @@ function closeModals() {
 }
 
 function logout() {
-    localStorage.clear();
+    sessionStorage.clear();
     window.location.href = 'login.html';
 }
 

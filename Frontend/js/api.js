@@ -4,7 +4,7 @@ const API_BASE = window.location.hostname === 'localhost'
 
 const api = {
     async request(method, endpoint, data = null) {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const config = {
             method,
             url: `${API_BASE}${endpoint}`,

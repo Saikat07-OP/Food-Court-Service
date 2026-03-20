@@ -33,8 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     password: passwordValue
                 });
 
-                localStorage.setItem('token', responseData.token);
-                localStorage.setItem('user', JSON.stringify(responseData.user));
+                sessionStorage.setItem('token', responseData.token);
+                sessionStorage.setItem('user', JSON.stringify(responseData.user));
 
                 const userRole = responseData.user.role;
                 if (userRole === 'admin') {

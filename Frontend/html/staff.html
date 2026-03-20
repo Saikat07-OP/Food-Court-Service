@@ -2,59 +2,88 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Staff Portal - FoodCourt</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen Scanner - FoodCourt</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="../css/staff.css">
+    
     <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
-    <div class="dashboard">
-        <aside class="sidebar">
-            <div class="brand"><i class="fas fa-qrcode"></i> Staff</div>
-            <nav class="nav-links">
-                <button class="nav-link active" onclick="showSection('scan')">
-                    <i class="fas fa-camera"></i> Scan QR
-                </button>
-                <button class="nav-link" onclick="showSection('orders')">
-                    <i class="fas fa-clipboard-list"></i> Active Orders
-                </button>
-                <button class="nav-link logout" onclick="logout()">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
-            </nav>
-        </aside>
 
-        <main class="content">
-            <header class="header">
-                <h2>Canteen Operations</h2>
-                <div class="user-info">
-                    <span id="staffName">Staff Member</span>
-                </div>
-            </header>
+    <aside class="sidebar">
+        <div class="brand"><i class="fas fa-utensils"></i> FoodCourt</div>
+        <nav class="nav-links">
+            <button class="nav-link active" onclick="showSection('scan')">
+                <i class="fas fa-camera"></i> Scan Orders
+            </button>
+            <button class="nav-link" onclick="showSection('orders')">
+                <i class="fas fa-clipboard-list"></i> Order Queue
+            </button>
+        </nav>
+        <button class="nav-link logout" onclick="logout()" style="margin: auto 12px 20px;">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </aside>
 
+    <main class="main-content">
+        <header class="header">
+            <h2>Canteen Operations</h2>
+            <div class="staff-badge">
+                <i class="fas fa-user-circle"></i> <span id="staffName">Staff Member</span>
+            </div>
+        </header>
+
+        <div class="dashboard-container">
             <div id="scanSection">
-                <div class="card" style="max-width: 500px; margin: 0 auto; text-align: center;">
+                <div class="card" style="max-width: 600px; margin: 0 auto; text-align: center;">
+                    <h3 style="margin-bottom: 10px; color: var(--text-dark);">Verify Student Order</h3>
+                    <p style="color: var(--text-gray); margin-bottom: 20px;">Align the QR code within the frame below</p>
+                    
                     <div id="reader"></div>
-                    <p style="margin-top: 15px; color: var(--secondary);">Scan customer order QR to verify</p>
                 </div>
-                <div id="orderVerifyCard" class="card" style="display:none; margin-top: 20px;">
-                    <h3>Order Details</h3>
-                    <div id="verifyContent"></div>
-                    <button class="btn" style="width:100%; margin-top:15px;" onclick="confirmServe()">Confirm Served</button>
+
+                <div id="orderVerifyCard" class="card verify-card" style="max-width: 600px; margin: 20px auto;">
+                    <div class="status-banner">
+                        <i class="fas fa-check-circle" style="font-size: 1.5rem;"></i>
+                        Valid Paid Order
+                    </div>
+
+                    <div class="order-details-grid">
+                        <div class="detail-group">
+                            <p>Order ID</p>
+                            <h4 id="dispOrderId">#ORD123</h4>
+                        </div>
+                        <div class="detail-group">
+                            <p>Student Name</p>
+                            <h4 id="dispName">Student Name</h4>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--text-dark);">Items to Serve:</h3>
+                    <ul id="dispItems" class="food-list">
+                        </ul>
+
+                    <button class="btn-confirm" onclick="confirmServe()">
+                        <i class="fas fa-bell"></i> Confirm Food Served
+                    </button>
                 </div>
             </div>
 
             <div id="ordersSection" style="display:none;">
                 <div class="card">
-                    <h3>Pending Pickup</h3>
+                    <h3>Pending Pickup Queue</h3>
+                    <p style="color: var(--text-gray); margin-top: 10px;">Orders waiting to be scanned...</p>
                     <div id="pendingList"></div>
                 </div>
             </div>
-        </main>
-    </div>
+        </div>
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="../js/api.js"></script>
     <script src="../js/staff.js"></script>
 </body>
 </html>

@@ -1,55 +1,111 @@
 let html5QrcodeScanner;
+let currentScannedOrderId = null;
 
-function onScanSuccess(decodedText, decodedResult) {
-
-    html5QrcodeScanner.clear();
-
-    verifyOrder(decodedText);
-}
-
-async function verifyOrder(qrData) {
-    try {
-        const res = await api.post('/staff/verify-qr', { qr_data: qrData });
-        
-        const order = res.data.order;
-        
-        document.getElementById('orderDetails').style.display = 'block';
-        document.getElementById('orderContent').innerHTML = `
-            <p><strong>User:</strong> ${order.user_id.name}</p>
-            <p><strong>Items:</strong> ${order.items.length} items</p>
-            <p><strong>Total:</strong> ₹${order.total_amount}</p>
-            <p style="color: green">Status: Valid</p>
-        `;
-        
-
-        window.currentOrderId = order._id;
-
-    } catch (err) {
-        alert(err.response?.data?.message || "Invalid or Used QR Code!");
-
-        startScanner();
+document.addEventListener('DOMContentLoaded', () => {
+    // Show correct User Role and Name
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (user) {
+        const userRole = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Staff';
+        const userName = user.name || 'Member';
+        document.getElementById('staffName').textContent = `${userRole} | ${userName}`;
     }
-}
+    showSection('scan');
+    startScanner();
+});
 
-async function confirmOrder() {
-    try {
-        await api.patch(`/staff/${window.currentOrderId}/serve`);
-        alert("Order Served & QR Dissolved!");
-        document.getElementById('orderDetails').style.display = 'none';
-        startScanner();
-    } catch (err) {
-        alert("Error confirming order");
-    }
+function showSection(sectionId) {
+    document.getElementById('scanSection').style.display = sectionId === 'scan' ? 'block' : 'none';
+    document.getElementById('ordersSection').style.display = sectionId === 'orders' ? 'block' : 'none';
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('onclick').includes(`'${sectionId}'`)) {
+            link.classList.add('active');
+        }
+    });
 }
 
 function startScanner() {
-    html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-    html5QrcodeScanner.render(onScanSuccess);
+    if (!html5QrcodeScanner) {
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { fps: 10, qrbox: { width: 250, height: 250 } }
+        );
+    }
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+    // Pause scanner
+    html5QrcodeScanner.clear();
+    document.getElementById('reader').style.display = 'none';
+
+    try {
+        const orderData = JSON.parse(decodedText);
+        currentScannedOrderId = orderData.order_id;
+
+        // Populate the Modern UI
+        document.getElementById('dispOrderId').innerText = orderData.order_id || "N/A";
+        document.getElementById('dispName').innerText = orderData.payer_name || "Student";
+
+        let itemsHtml = orderData.items.map(item => `
+            <li>
+                <span><span class="food-qty">${item.qty}x</span> ${item.dish}</span>
+            </li>
+        `).join('');
+        document.getElementById('dispItems').innerHTML = itemsHtml;
+
+        // Show verification card
+        document.getElementById('orderVerifyCard').style.display = 'block';
+
+    } catch (err) {
+        console.error("🔥 SCANNER FAILED TO PARSE JSON!");
+        console.error("The exact text the camera read was: ", decodedText);
+        alert("Invalid QR Code Data! Please check the console (F12) to see what text it found.");
+        
+        document.getElementById('reader').style.display = 'block';
+        startScanner();
+    }
+}
+
+function onScanFailure(error) { 
+    // Ignore routine camera errors
+}
+
+async function confirmServe() {
+    if (!currentScannedOrderId) return;
+
+    const btn = document.querySelector('.btn-confirm');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    btn.disabled = true;
+
+    try {
+        const backendURL = 'https://food-court-service-backend.onrender.com';
+        
+        await axios.patch(`${backendURL}/api/orders/${currentScannedOrderId}/status`, {
+            order_status: 'served'
+        });
+
+        alert("Order completed! Food has been served.");
+
+        document.getElementById('orderVerifyCard').style.display = 'none';
+        document.getElementById('reader').style.display = 'block';
+        currentScannedOrderId = null;
+        
+        btn.innerHTML = '<i class="fas fa-bell"></i> Confirm Food Served';
+        btn.disabled = false;
+        
+        startScanner();
+
+    } catch (err) {
+        console.error("Confirm Serve Error:", err);
+        alert("Server Error! Could not update order status.");
+        btn.innerHTML = '<i class="fas fa-bell"></i> Confirm Food Served';
+        btn.disabled = false;
+    }
 }
 
 function logout() {
     localStorage.clear();
-    window.location.href = '../html/login.html';
+    window.location.href = 'login.html'; 
 }
-
-startScanner();

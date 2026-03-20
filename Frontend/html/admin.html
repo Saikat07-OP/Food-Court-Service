@@ -12,7 +12,7 @@
 <body>
     <div class="dashboard">
         <aside class="sidebar">
-            <div class="brand"><i class="fas fa-user-shield"></i>  Admin  </div>
+            <div class="brand"><i class="fas fa-user-shield"></i> Admin </div>
             <nav class="nav-links">
                 <button class="nav-link active" onclick="showSection('overview')">
                     <i class="fas fa-chart-line"></i> <span>Overview</span>
@@ -137,6 +137,9 @@
             <form id="addMenuForm" onsubmit="handleMenuSubmit(event)">
                 <input type="text" id="dishName" placeholder="Dish Name" required>
                 <input type="number" id="dishPrice" placeholder="Price (₹)" required>
+
+                <input type="number" id="dishQuantity" placeholder="Available Quantity (e.g. 50)" required min="1">
+
                 <select id="dishCategory" required>
                     <option value="breakfast">Breakfast</option>
                     <option value="lunch">Lunch</option>
@@ -161,6 +164,20 @@
                 <button id="confirmYesBtn" class="btn btn-danger" style="flex: 1;">Yes, Delete</button>
                 <button class="btn" style="flex: 1; background: var(--text-gray);"
                     onclick="closeConfirmModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="stockModal" class="modal" style="z-index: 3000;">
+        <div class="modal-content" style="max-width: 350px; text-align: center;">
+            <h3 style="margin-bottom: 10px;">Update Stock</h3>
+            <p id="stockDishName" style="color: var(--primary); font-weight: 600; margin-bottom: 15px;">Dish Name</p>
+            
+            <input type="number" id="newStockInput" placeholder="Enter new quantity" min="0" style="width: 100%; margin-bottom: 20px;">
+            
+            <div style="display: flex; gap: 15px;">
+                <button class="btn" style="flex: 1; background: var(--primary); color: white;" onclick="submitUpdateStock()">Update</button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="closeStockModal()">Cancel</button>
             </div>
         </div>
     </div>

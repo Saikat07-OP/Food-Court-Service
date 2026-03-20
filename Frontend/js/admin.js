@@ -7,10 +7,10 @@ function showToast(message, type = 'success') {
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    
+
     const icon = type === 'success' ? 'fa-check-circle' : 'fa-times-circle';
     toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
-    
+
     container.appendChild(toast);
 
     // Auto-remove after animation
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     const user = JSON.parse(localStorage.getItem('user'));
-    
+
     // Security Kick-out
     if (!user || user.role !== 'admin') {
         window.location.href = 'login.html';
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('adminName').textContent = user.name;
     document.getElementById('currentDate').textContent = new Date().toDateString();
-    
+
     showSection('overview');
 });
 
@@ -86,12 +86,69 @@ function showSection(sectionId) {
             link.classList.add('active');
         }
     });
+    if (sectionId === 'overview') {
+        loadOverview();
+        loadUsers();
+    }
 
     // Load Data
     if (sectionId === 'manage-users') loadUsers();
     if (sectionId === 'manage-menu') loadAdminMenu();
 }
 
+// ==========================================
+// OVERVIEW DASHBOARD DATA
+// ==========================================
+async function loadOverview() {
+    try {
+        const token = localStorage.getItem('token');
+        const backendURL = 'https://food-court-service-backend.onrender.com'; // Your live Render URL
+
+        // 1. Fetch Summary Stats for Orders and Revenue
+        const summaryRes = await axios.get(`${backendURL}/api/staff/summary`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const summary = summaryRes.data.summary;
+
+        // Update the top cards
+        document.getElementById('totalOrders').innerText = summary.totalOrders || 0;
+        document.getElementById('totalRevenue').innerText = `₹${summary.totalRevenue || 0}`;
+
+        // 2. Fetch Recent Orders for the Activity List
+        const ordersRes = await axios.get(`${backendURL}/api/orders/manage/all?limit=5`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const recentOrders = ordersRes.data.orders;
+        const recentList = document.getElementById('recentOrdersList');
+
+        if (recentOrders.length === 0) {
+            recentList.innerHTML = '<p style="color:var(--text-gray); margin-top:10px;">No recent transactions.</p>';
+        } else {
+            recentList.innerHTML = recentOrders.map(order => `
+                <div style="border-bottom: 1px solid var(--border); padding: 12px 0; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: var(--text-dark);">#${order.order_id || 'Unknown'}</strong>
+                        <p style="font-size: 0.8rem; color: var(--text-gray); margin-top: 2px;">
+                            ${order.user_id ? order.user_id.name : 'Deleted User'}
+                        </p>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="color: ${order.payment_status === 'paid' ? '#10b981' : '#f59e0b'}; font-weight: 700;">
+                            ₹${order.total_amount}
+                        </span>
+                        <p style="font-size: 0.75rem; color: var(--text-gray); text-transform: capitalize; margin-top: 2px;">
+                            ${order.order_status}
+                        </p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+    } catch (err) {
+        console.error("Overview Load Error:", err);
+        document.getElementById('recentOrdersList').innerHTML = '<p style="color:red; margin-top:10px;">Failed to load overview data.</p>';
+    }
+}
 
 // ==========================================
 // 3. USER MANAGEMENT
@@ -99,10 +156,10 @@ function showSection(sectionId) {
 async function loadUsers() {
     const tbody = document.getElementById('userTableBody');
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Fetching users...</td></tr>';
-    
+
     try {
         // Because api.js returns res.data, users is the final array
-        const users = await api.getUsers(); 
+        const users = await api.getUsers();
 
         if (!users || users.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No users found.</td></tr>';
@@ -132,7 +189,7 @@ async function loadUsers() {
 
 async function handleUserSubmit(event) {
     event.preventDefault();
-    
+
     // Safely grabbing optional fields if they exist, otherwise applying defaults for Mongoose
     const phoneInput = document.getElementById('userPhone');
     const deptInput = document.getElementById('userDept');
@@ -152,7 +209,7 @@ async function handleUserSubmit(event) {
         await api.addUser(userData);
         showToast("User added successfully!", "success");
         closeModals();
-        loadUsers(); 
+        loadUsers();
     } catch (err) {
         console.error("Add User Error:", err);
         showToast(err.response?.data?.message || "Error adding user to database", "error");
@@ -165,8 +222,8 @@ function triggerDeleteUser(id) {
             await api.deleteUser(id);
             showToast("User deleted successfully.", "success");
             loadUsers();
-        } catch (err) { 
-            showToast("Failed to delete user.", "error"); 
+        } catch (err) {
+            showToast("Failed to delete user.", "error");
         }
     });
 }
@@ -178,24 +235,34 @@ function triggerDeleteUser(id) {
 async function loadAdminMenu() {
     const grid = document.getElementById('adminMenuGrid');
     grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Loading menu...</p>';
-    
+
     try {
         const response = await api.getMenu();
-        // Handle both possible backend structures (array vs categorized object)
-        const menu = response.menu || response; 
+        const menu = response.menu || response;
         let html = '';
 
         for (const [category, items] of Object.entries(menu)) {
-            // Ensure items is an array before trying to loop
             if (Array.isArray(items)) {
                 items.forEach(item => {
-                    const imgSrc = item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80';
+                    // Fallback image if none provided
+                    const imgSrc = item.image_url || 'https://imgs.search.brave.com/eJrOBBqXjPdhO8ejCg9Vz4Tkubh4-rLONNGdACLq9vQ/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9wbHVz/LnVuc3BsYXNoLmNv/bS9wcmVtaXVtX3Zl/Y3Rvci0xNzEzMzY0/MzkzMDg1LTBmZGRh/MTNlYzdjZD9mbT1q/cGcmcT02MCZ3PTMw/MDAmaXhsaWI9cmIt/NC4xLjA';
+
                     html += `
                     <div class="card" style="padding: 15px;">
                         <img src="${imgSrc}" style="width:100%; height:120px; object-fit:cover; border-radius:10px; margin-bottom:10px;">
                         <h4 style="margin: 5px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.dish_name}</h4>
-                        <p style="font-size:0.85rem; color:var(--text-gray);">₹${item.price} | <span style="text-transform:capitalize;">${category}</span></p>
+                        
+                        <p style="font-size:0.85rem; color:var(--text-gray);">
+                            ₹${item.price} | <span style="text-transform:capitalize;">${category}</span><br>
+                            <strong style="color: var(--primary);">Stock: ${item.available_quantity || 0}</strong>
+                        </p>
+                        
                         <div style="margin-top:12px; display:flex; gap:10px;">
+                            <button class="btn btn-sm" style="flex:1; background: var(--primary); color: white;" 
+                                    onclick="triggerUpdateStock('${item._id}', '${item.dish_name}', ${item.available_quantity || 0})">
+                                <i class="fas fa-edit"></i> Stock
+                            </button>
+                            
                             <button class="btn btn-sm btn-danger" style="flex:1;" onclick="triggerDeleteItem('${item._id}')">
                                 <i class="fas fa-trash"></i> Delete
                             </button>
@@ -213,12 +280,14 @@ async function loadAdminMenu() {
 
 async function handleMenuSubmit(event) {
     event.preventDefault();
+
+    // Grab all the data, including the new Quantity field
     const dishData = {
         dish_name: document.getElementById('dishName').value,
-        price: document.getElementById('dishPrice').value,
+        price: Number(document.getElementById('dishPrice').value), // Make sure it's sent as a number
         category: document.getElementById('dishCategory').value,
         image_url: document.getElementById('dishImg').value,
-        available_quantity: 50 // Default stock
+        available_quantity: Number(document.getElementById('dishQuantity').value) // Dynamic Quantity!
     };
 
     try {
@@ -237,12 +306,66 @@ function triggerDeleteItem(id) {
             await api.deleteMenuItem(id);
             showToast("Dish removed from menu.", "success");
             loadAdminMenu();
-        } catch (err) { 
-            showToast("Failed to delete dish.", "error"); 
+        } catch (err) {
+            showToast("Failed to delete dish.", "error");
         }
     });
 }
 
+// ==========================================
+// CUSTOM STOCK UPDATE MODAL SYSTEM
+// ==========================================
+let currentStockUpdateId = null;
+
+// 1. Open the beautiful modal instead of an alert
+function triggerUpdateStock(id, dishName, currentQty) {
+    currentStockUpdateId = id;
+    
+    // Fill the modal with the current info
+    document.getElementById('stockDishName').textContent = dishName;
+    document.getElementById('newStockInput').value = currentQty;
+    
+    // Show the modal
+    document.getElementById('stockModal').style.display = 'block';
+}
+
+// 2. Close the modal
+function closeStockModal() {
+    document.getElementById('stockModal').style.display = 'none';
+    currentStockUpdateId = null;
+}
+
+// 3. Handle the actual update when they click "Update"
+async function submitUpdateStock() {
+    const newQtyStr = document.getElementById('newStockInput').value;
+    const dishName = document.getElementById('stockDishName').textContent;
+    
+    if (newQtyStr.trim() === '') return showToast("Quantity cannot be empty.", "error");
+
+    const newQty = parseInt(newQtyStr, 10);
+    if (isNaN(newQty) || newQty < 0) {
+        return showToast("Please enter a valid number (0 or higher).", "error");
+    }
+
+    try {
+        const token = localStorage.getItem('token');
+        const backendURL = 'https://food-court-service-backend.onrender.com';
+        
+        await axios.put(`${backendURL}/api/menu/${currentStockUpdateId}`, 
+            { available_quantity: newQty }, 
+            { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+
+        showToast(`${dishName} stock updated to ${newQty}!`, "success");
+        
+        closeStockModal();
+        loadAdminMenu(); // Refresh the cards to show the new number!
+        
+    } catch (err) {
+        console.error("Update Stock Error:", err);
+        showToast(err.response?.data?.message || "Failed to update stock.", "error");
+    }
+}
 
 // ==========================================
 // 5. UTILITY FUNCTIONS
@@ -257,10 +380,10 @@ function closeModals() {
     const menuModal = document.getElementById('menuModal');
     if (userModal) userModal.style.display = 'none';
     if (menuModal) menuModal.style.display = 'none';
-    
+
     const addUserForm = document.getElementById('addUserForm');
     if (addUserForm) addUserForm.reset();
-    
+
     const addMenuForm = document.getElementById('addMenuForm');
     if (addMenuForm) addMenuForm.reset();
 }
@@ -271,9 +394,10 @@ function logout() {
 }
 
 // Close modals if clicking outside the white box
-window.onclick = function(event) {
+window.onclick = function (event) {
     if (event.target.classList.contains('modal')) {
         closeModals();
         closeConfirmModal();
+        closeStockModal();
     }
 };

@@ -41,14 +41,25 @@ async function loadMenu() {
 
         for (const [category, items] of Object.entries(menu)) {
             items.forEach(item => {
-                const defaultImage = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80';
+                const defaultImage = 'https://imgs.search.brave.com/eJrOBBqXjPdhO8ejCg9Vz4Tkubh4-rLONNGdACLq9vQ/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9wbHVz/LnVuc3BsYXNoLmNv/bS9wcmVtaXVtX3Zl/Y3Rvci0xNzEzMzY0/MzkzMDg1LTBmZGRh/MTNlYzdjZD9mbT1q/cGcmcT02MCZ3PTMw/MDAmaXhsaWI9cmIt/NC4xLjA';
                 const imgSrc = item.image_url || defaultImage;
+                
+                const stockQty = item.available_quantity || 0;
+                const stockDisplay = stockQty > 0 
+                    ? `<span style="color: #10b981; font-size: 0.8rem; font-weight: 700;"><i class="fas fa-box"></i> ${stockQty} Available</span>` 
+                    : `<span style="color: #ef4444; font-size: 0.8rem; font-weight: 700;"><i class="fas fa-times-circle"></i> Sold Out</span>`;
+                
+                const buttonHtml = stockQty > 0
+                    ? `<button class="btn" onclick="addToCart('${item._id}', '${item.dish_name}', ${item.price})">Add +</button>`
+                    : `<button class="btn" style="background: var(--border); color: var(--text-gray); cursor: not-allowed;" disabled>Empty</button>`;
 
                 html += `
                 <div class="card">
-                    <span style="font-size:0.75rem; color:var(--primary); font-weight:700; text-transform:uppercase; display:block; margin-bottom:10px;">
-                        ${category}
-                    </span>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span style="font-size:0.75rem; color:var(--primary); font-weight:700; text-transform:uppercase;">
+                            ${category}
+                        </span>
+                        ${stockDisplay} </div>
                     
                     <div class="food-img-container">
                         <img src="${imgSrc}" alt="${item.dish_name}" class="food-img">
@@ -56,14 +67,12 @@ async function loadMenu() {
 
                     <h3 style="margin: 15px 0 5px 0;">${item.dish_name}</h3>
                     <p style="font-size:0.9rem; color:var(--text-gray); min-height: 40px;">
-                        ${item.description || 'Tasty & Fresh'}
+                        ${item.description || ''}
                     </p>
+                    
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
                         <span style="font-weight:800; font-size:1.3rem; color:var(--text-dark);">₹${item.price}</span>
-                        <button class="btn" onclick="addToCart('${item._id}', '${item.dish_name}', ${item.price})">
-                            Add +
-                        </button>
-                    </div>
+                        ${buttonHtml} </div>
                 </div>`;
             });
         }

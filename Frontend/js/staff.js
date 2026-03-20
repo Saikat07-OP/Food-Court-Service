@@ -80,14 +80,14 @@ async function confirmServe() {
     btn.disabled = true;
 
     try {
-        const backendURL = 'https://food-court-service-backend.onrender.com';
-        
-        await axios.patch(`${backendURL}/api/orders/${currentScannedOrderId}/status`, {
-            order_status: 'served'
-        });
+        // We use your custom 'api' wrapper here! 
+        // It automatically adds the security token and uses the correct Render URL.
+        // NOTE: Make sure this route matches your backend (it looks like you used /staff/:id/serve previously)
+        await api.patch(`/staff/${currentScannedOrderId}/serve`);
 
         alert("Order completed! Food has been served.");
 
+        // Reset UI for the next student
         document.getElementById('orderVerifyCard').style.display = 'none';
         document.getElementById('reader').style.display = 'block';
         currentScannedOrderId = null;
@@ -98,8 +98,13 @@ async function confirmServe() {
         startScanner();
 
     } catch (err) {
-        console.error("Confirm Serve Error:", err);
-        alert("Server Error! Could not update order status.");
+        // This will print the exact reason the backend rejected it into your console
+        console.error("Confirm Serve Error details:", err.response || err);
+        
+        // Try to show the exact message from the backend if it exists
+        const errorMsg = err.response?.data?.message || "Server Error! Could not update order status.";
+        alert(errorMsg);
+        
         btn.innerHTML = '<i class="fas fa-bell"></i> Confirm Food Served';
         btn.disabled = false;
     }

@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Checkout - FoodCourt</title>
-    <link rel="stylesheet" href="../css/payment.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/payment.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 </head>
 
 <body>
@@ -16,12 +16,13 @@
                 <i class="fas fa-shield-alt"></i>
             </div>
             <h2>Secure Checkout</h2>
-            <p style="color: var(--text-gray);">Review your items and complete payment</p>
+            <p style="color: var(--text-gray)">
+                Review your items and complete payment
+            </p>
 
             <div class="order-summary">
                 <h4>Order Summary</h4>
-                <div id="orderItems">
-                </div>
+                <div id="orderItems"></div>
             </div>
 
             <div class="total-section">
@@ -37,6 +38,46 @@
                 <i class="fas fa-arrow-left"></i> Edit Order
             </a>
         </div>
+    </div>
+    <div id="successScreen" style="
+        display: none;
+        text-align: center;
+        margin-top: 30px;
+        padding: 20px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      ">
+        <h2 style="color: #10b981; margin-bottom: 10px">
+            <i class="fas fa-check-circle"></i> Payment Successful!
+        </h2>
+        <h3 style="color: #333">Order: <span id="finalOrderNumber"></span></h3>
+
+        <img id="generatedQR" src="" alt="Your Order QR Code" style="
+          width: 200px;
+          height: 200px;
+          border: 2px solid #eee;
+          padding: 10px;
+          border-radius: 10px;
+          margin: 20px auto;
+          display: block;
+        " />
+
+        <p style="color: #666; margin-bottom: 20px">
+            Please show this QR code at the canteen counter to collect your food.
+        </p>
+
+        <button onclick="window.location.href = 'student.html'" class="btn" style="
+          background: var(--primary);
+          padding: 10px 20px;
+          border: none;
+          border-radius: 5px;
+          color: white;
+          cursor: pointer;
+          font-weight: bold;
+        ">
+            Return to Dashboard
+        </button>
     </div>
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>

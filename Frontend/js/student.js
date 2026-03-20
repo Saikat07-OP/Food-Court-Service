@@ -36,9 +36,9 @@ async function loadMenu() {
     grid.innerHTML = '<p>Loading yummy food...</p>';
     try {
         const res = await api.getMenu();
-        const menu = res.menu; 
+        const menu = res.menu;
         let html = '';
-        
+
         for (const [category, items] of Object.entries(menu)) {
             items.forEach(item => {
                 const defaultImage = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80';
@@ -100,12 +100,12 @@ function viewCart() {
 }
 async function placeOrder() {
     try {
-        const orderData = { 
-            items: cart.map(i => ({ 
-                dish_name: i.dish_name, 
-                quantity: i.qty, 
-                price: i.price 
-            })) 
+        const orderData = {
+            items: cart.map(i => ({
+                dish_name: i.dish_name,
+                quantity: i.qty,
+                price: i.price
+            }))
         };
         await api.placeOrder(orderData);
         alert("Order Placed Successfully!");
@@ -122,19 +122,50 @@ async function loadHistory() {
     try {
         const res = await api.getMyOrders();
         const orders = res.orders;
-        list.innerHTML = orders.map(order => `
-            <div style="border-bottom:1px solid var(--border); padding: 15px 0; display:flex; justify-content:space-between; align-items:center;">
+
+        if (orders.length === 0) {
+            list.innerHTML = '<p>No orders found.</p>';
+            return;
+        }
+
+        list.innerHTML = orders.map(order => {
+            // 1. Prepare the QR Button (Empty by default)
+            let qrBtnHtml = '';
+
+            // 2. If Paid AND Pending (not served yet), show the button!
+            if (order.payment_status === 'paid' && order.order_status === 'pending') {
+                // We safely encode the text data so it doesn't break the HTML
+                const encodedData = encodeURIComponent(order.qr_code_data || '');
+                qrBtnHtml = `
+                    <button class="btn" style="margin-top: 10px; padding: 5px 12px; font-size: 0.8rem;" 
+                            onclick="openQrModal('${encodedData}')">
+                        <i class="fas fa-qrcode"></i> View QR
+                    </button>
+                `;
+            }
+
+            // 3. Render the card
+            return `
+            <div style="border-bottom:1px solid var(--border); padding: 15px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap;">
                 <div>
                     <strong>Order #${order.order_id || 'N/A'}</strong>
                     <p style="font-size:0.85rem; color:var(--text-gray);">₹${order.total_amount} | ${new Date(order.order_date).toLocaleDateString()}</p>
+                    ${qrBtnHtml}
                 </div>
-                <span style="background:var(--primary-light); color:var(--primary); padding:5px 12px; border-radius:20px; font-size:0.75rem; font-weight:700; text-transform:uppercase;">
-                    ${order.order_status}
-                </span>
+                <div style="text-align: right;">
+                    <span style="background:var(--primary-light); color:var(--primary); padding:5px 12px; border-radius:20px; font-size:0.75rem; font-weight:700; text-transform:uppercase;">
+                        ${order.order_status}
+                    </span>
+                    <p style="font-size: 0.75rem; margin-top: 5px; color: ${order.payment_status === 'paid' ? 'green' : 'orange'};">
+                        Payment: ${order.payment_status}
+                    </p>
+                </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (err) {
-        list.innerHTML = '<p>No orders found.</p>';
+        console.error("Order History Error:", err);
+        list.innerHTML = '<p>Error loading orders.</p>';
     }
 }
 function logout() {
@@ -150,4 +181,20 @@ function viewCart() {
         total: total
     }));
     window.location.href = 'payment.html';
+}
+function openQrModal(encodedQrData) {
+    if (!encodedQrData || encodedQrData === 'undefined') {
+        alert("QR Code is still generating or missing.");
+        return;
+    }
+    
+    // Decode the data back to normal text
+    const rawData = decodeURIComponent(encodedQrData);
+    
+    // Call the free QR generation API
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(rawData)}`;
+    
+    // Update the image source and show the modal box
+    document.getElementById('modalQrImage').src = qrImageUrl;
+    document.getElementById('qrModal').style.display = 'block';
 }

@@ -1,4 +1,5 @@
 const express = require('express');
+require('dotenv').config();
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
@@ -8,6 +9,7 @@ const Order = require('../models/Order');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
+
 
 // Initialize Razorpay using your .env keys
 const razorpay = new Razorpay({

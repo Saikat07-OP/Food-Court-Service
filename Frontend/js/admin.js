@@ -99,37 +99,33 @@ function showSection(sectionId) {
 // ==========================================
 // OVERVIEW DASHBOARD DATA
 // ==========================================
-async function loadOverview() {
+async function loadOverview(selectedDate = null) {
     try {
-        const token = sessionStorage.getItem('token');
-        const backendURL = 'https://food-court-service-backend.onrender.com'; // Your live Render URL
-
-        // 1. Fetch Summary Stats for Orders and Revenue
-        const summaryRes = await axios.get(`${backendURL}/api/staff/summary`, {
+        const token = sessionStorage.getItem('token'); 
+        const backendURL = 'https://food-court-service-backend.onrender.com';
+        const dateToFetch = selectedDate || new Date().toISOString().split('T')[0]; 
+        const dateInput = document.getElementById('overviewDate');
+        if (dateInput) dateInput.value = dateToFetch;
+        const summaryRes = await axios.get(`${backendURL}/api/staff/summary?date=${dateToFetch}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         const summary = summaryRes.data.summary;
-
-        // Update the top cards
         document.getElementById('totalOrders').innerText = summary.totalOrders || 0;
         document.getElementById('totalRevenue').innerText = `₹${summary.totalRevenue || 0}`;
-
-        // 2. Fetch Recent Orders for the Activity List
-        const ordersRes = await axios.get(`${backendURL}/api/orders/manage/all?limit=5`, {
+        const ordersRes = await axios.get(`${backendURL}/api/orders/manage/all?limit=50&date=${dateToFetch}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         const recentOrders = ordersRes.data.orders;
         const recentList = document.getElementById('recentOrdersList');
-
         if (recentOrders.length === 0) {
-            recentList.innerHTML = '<p style="color:var(--text-gray); margin-top:10px;">No recent transactions.</p>';
+            recentList.innerHTML = `<p style="color:var(--text-gray); margin-top:10px;">No transactions found for ${dateToFetch}.</p>`;
         } else {
             recentList.innerHTML = recentOrders.map(order => `
                 <div style="border-bottom: 1px solid var(--border); padding: 12px 0; display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <strong style="color: var(--text-dark);">#${order.order_id || 'Unknown'}</strong>
                         <p style="font-size: 0.8rem; color: var(--text-gray); margin-top: 2px;">
-                            ${order.user_id ? order.user_id.name : 'Deleted User'} &bull; ${new Date(order.order_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                            ${order.user_id ? order.user_id.name : 'Deleted User'} &bull; ${new Date(order.order_date).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })}
                         </p>
                     </div>
                     <div style="text-align: right;">
@@ -143,10 +139,16 @@ async function loadOverview() {
                 </div>
             `).join('');
         }
-
     } catch (err) {
         console.error("Overview Load Error:", err);
         document.getElementById('recentOrdersList').innerHTML = '<p style="color:red; margin-top:10px;">Failed to load overview data.</p>';
+    }
+}
+function handleDateChange() {
+    const pickedDate = document.getElementById('overviewDate').value;
+    if (pickedDate) {
+        document.getElementById('recentOrdersList').innerHTML = '<p style="color:var(--text-gray); margin-top:10px;">Loading data...</p>';
+        loadOverview(pickedDate);
     }
 }
 

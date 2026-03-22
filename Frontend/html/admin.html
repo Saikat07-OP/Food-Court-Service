@@ -17,11 +17,11 @@
                 <button class="nav-link active" onclick="showSection('overview')">
                     <i class="fas fa-chart-line"></i> <span>Overview</span>
                 </button>
-                <button class="nav-link" onclick="showSection('manage-users')">
-                    <i class="fas fa-users"></i> <span>Users</span>
-                </button>
                 <button class="nav-link" onclick="showSection('manage-menu')">
                     <i class="fas fa-hamburger"></i> <span>Menu</span>
+                </button>
+                <button class="nav-link" onclick="showSection('manage-users')">
+                    <i class="fas fa-users"></i> <span>Users</span>
                 </button>
                 <button class="nav-link logout" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
@@ -40,6 +40,17 @@
             </header>
 
             <section id="overviewSection">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="color: var(--text-dark);">Daily Overview</h3>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label for="overviewDate"
+                            style="font-weight: 600; color: var(--text-gray); font-size: 0.9rem;">Filter by
+                            Date:</label>
+                        <input type="date" id="overviewDate"
+                            style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); outline: none; font-family: inherit;"
+                            onchange="handleDateChange()">
+                    </div>
+                </div>
                 <div class="stats-row">
                     <div class="card">
                         <i class="fas fa-shopping-bag" style="color:var(--primary)"></i>
@@ -51,11 +62,6 @@
                         <h3>Revenue</h3>
                         <p id="totalRevenue">₹0</p>
                     </div>
-                    <div class="card">
-                        <i class="fas fa-user-check" style="color:#f59e0b"></i>
-                        <h3>Registered Users</h3>
-                        <p id="activeUsersCount">0</p>
-                    </div>
                 </div>
                 <div class="card">
                     <h3>Recent Activity</h3>
@@ -66,6 +72,14 @@
             </section>
 
             <section id="manageUsersSection" style="display:none;">
+                <div class="stats-row" style="margin-bottom: 20px;">
+                    <div class="card" style="max-width: 300px;">
+                        <i class="fas fa-user-check" style="color:#f59e0b"></i>
+                        <h3>Registered Users</h3>
+                        <p id="activeUsersCount">0</p>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="menu-header">
                         <h3>System Users</h3>
@@ -172,11 +186,13 @@
         <div class="modal-content" style="max-width: 350px; text-align: center;">
             <h3 style="margin-bottom: 10px;">Update Stock</h3>
             <p id="stockDishName" style="color: var(--primary); font-weight: 600; margin-bottom: 15px;">Dish Name</p>
-            
-            <input type="number" id="newStockInput" placeholder="Enter new quantity" min="0" style="width: 100%; margin-bottom: 20px;">
-            
+
+            <input type="number" id="newStockInput" placeholder="Enter new quantity" min="0"
+                style="width: 100%; margin-bottom: 20px;">
+
             <div style="display: flex; gap: 15px;">
-                <button class="btn" style="flex: 1; background: var(--primary); color: white;" onclick="submitUpdateStock()">Update</button>
+                <button class="btn" style="flex: 1; background: var(--primary); color: white;"
+                    onclick="submitUpdateStock()">Update</button>
                 <button class="btn btn-danger" style="flex: 1;" onclick="closeStockModal()">Cancel</button>
             </div>
         </div>

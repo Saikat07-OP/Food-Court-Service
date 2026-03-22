@@ -122,10 +122,16 @@ router.get('/my-orders', authenticate, async (req, res) => {
     const userId = req.user._id;
 
     let filter = { user_id: userId };
-    if (status) filter.order_status = status;
+
+    if (status) {
+      filter.order_status = status;
+    } else {
+      filter.order_status = { $ne: 'cancelled' }; 
+      filter.payment_status = 'paid';
+    }
 
     const orders = await Order.find(filter)
-      .sort({ order_date: -1 })
+      .sort({ createdAt: -1 }) // Use createdAt for better timeline
       .skip(skip)
       .limit(parseInt(limit))
       .populate('user_id', 'name college_id email');
@@ -225,15 +231,24 @@ router.patch('/:id/status', authenticate, authorize('staff', 'admin'), [
   }
 });
 
-// Get all orders (admin/staff only)
+// Get all orders
 router.get('/manage/all', authenticate, authorize('admin', 'staff'), async (req, res) => {
   try {
     const { page = 1, limit = 20, status, date, userId } = req.query;
     const skip = (page - 1) * limit;
 
     let filter = {};
-    if (status) filter.order_status = status;
+
+    if (status && status !== 'all') {
+      filter.order_status = status;
+    } else {
+
+      filter.order_status = { $nin: ['cancelled'] };
+      filter.payment_status = 'paid'; 
+    }
+
     if (userId) filter.user_id = userId;
+    
     if (date) {
       const targetDate = new Date(date);
       const startOfDay = new Date(targetDate);
@@ -252,18 +267,16 @@ router.get('/manage/all', authenticate, authorize('admin', 'staff'), async (req,
     const total = await Order.countDocuments(filter);
 
     res.json({
-      message: 'Orders retrieved successfully',
       orders,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
-        totalItems: total,
-        itemsPerPage: parseInt(limit)
+        totalItems: total
       }
     });
   } catch (error) {
-    console.error('Get all orders error:', error);
-    res.status(500).json({ message: 'Server error while fetching orders' });
+    console.error('Admin order fetch error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -290,7 +303,6 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
       });
     }
 
-    // 🔥 UPDATED: Restore menu quantities by name (No dates!)
     for (const item of order.items) {
       await Menu.updateOne(
         { dish_name: item.dish_name },

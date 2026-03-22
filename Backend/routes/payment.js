@@ -166,21 +166,24 @@ router.post('/verify', authenticate, [
 // ==========================================
 // 3. GET PAYMENT HISTORY (Student)
 // ==========================================
+
 router.get('/history', authenticate, async (req, res) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
+    const { page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
     const userId = req.user._id;
 
-    let filter = { user_id: userId };
-    if (status) filter.status = status;
+    let filter = { 
+        user_id: userId, 
+        status: { $in: ['captured', 'refunded'] } 
+    };
 
     const payments = await Payment.find(filter)
       .sort({ payment_time: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 
-    const total = await Payment.countDocuments(filter);
+    const total = await Order.countDocuments(filter);
 
     res.json({
       message: 'Payment history retrieved successfully',

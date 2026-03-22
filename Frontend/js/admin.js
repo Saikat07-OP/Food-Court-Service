@@ -105,37 +105,46 @@ function showSection(sectionId) {
 async function loadOverview(selectedDate = null) {
     try {
         const token = sessionStorage.getItem('token');
-        const backendURL = 'https://food-court-service-backend.onrender.com';
+        const backendURL = getBackendURL();
         const dateToFetch = selectedDate || new Date().toISOString().split('T')[0];
+        
         const dateInput = document.getElementById('overviewDate');
         if (dateInput) dateInput.value = dateToFetch;
+
+        // 1. Get Summary Stats
         const summaryRes = await axios.get(`${backendURL}/api/staff/summary?date=${dateToFetch}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         const summary = summaryRes.data.summary;
         document.getElementById('totalOrders').innerText = summary.totalOrders || 0;
         document.getElementById('totalRevenue').innerText = `₹${summary.totalRevenue || 0}`;
+
+        // 2. Get Recent Orders 
         const ordersRes = await axios.get(`${backendURL}/api/orders/manage/all?limit=50&date=${dateToFetch}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
+        
         const recentOrders = ordersRes.data.orders;
         const recentList = document.getElementById('recentOrdersList');
-        if (recentOrders.length === 0) {
-            recentList.innerHTML = `<p style="color:var(--text-gray); margin-top:10px;">No transactions found for ${dateToFetch}.</p>`;
+
+        if (!recentOrders || recentOrders.length === 0) {
+            recentList.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-gray);">
+                <i class="fas fa-clipboard-check" style="font-size:2rem; display:block; margin-bottom:10px;"></i>
+                No successful transactions found for this date.
+            </div>`;
         } else {
             recentList.innerHTML = recentOrders.map(order => `
                 <div style="border-bottom: 1px solid var(--border); padding: 12px 0; display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <strong style="color: var(--text-dark);">#${order.order_id || 'Unknown'}</strong>
+                        <strong style="color: var(--text-dark);">#${order.order_id}</strong>
                         <p style="font-size: 0.8rem; color: var(--text-gray); margin-top: 2px;">
-                            ${order.user_id ? order.user_id.name : 'Deleted User'} &bull; ${new Date(order.order_date).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })}
+                            ${order.user_id ? order.user_id.name : 'Unknown User'} &bull; 
+                            ${new Date(order.order_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                     </div>
                     <div style="text-align: right;">
-                        <span style="color: ${order.payment_status === 'paid' ? '#10b981' : '#f59e0b'}; font-weight: 700;">
-                            ₹${order.total_amount}
-                        </span>
-                        <p style="font-size: 0.75rem; color: var(--text-gray); text-transform: capitalize; margin-top: 2px;">
+                        <span style="color: #10b981; font-weight: 700;">₹${order.total_amount}</span>
+                        <p style="font-size: 0.7rem; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; text-transform: uppercase;">
                             ${order.order_status}
                         </p>
                     </div>
@@ -144,7 +153,7 @@ async function loadOverview(selectedDate = null) {
         }
     } catch (err) {
         console.error("Overview Load Error:", err);
-        document.getElementById('recentOrdersList').innerHTML = '<p style="color:red; margin-top:10px;">Failed to load overview data.</p>';
+        showToast("Failed to load dashboard data", "error");
     }
 }
 function handleDateChange() {

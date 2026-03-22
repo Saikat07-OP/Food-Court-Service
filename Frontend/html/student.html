@@ -37,7 +37,6 @@
                         <p>What's on the menu today?</p>
                     </div>
                 </div>
-
                 <div class="user-actions">
                     <button class="cart-btn" onclick="viewCart()">
                         <i class="fas fa-shopping-cart"></i>
@@ -46,7 +45,25 @@
                 </div>
             </header>
 
-            <div id="menuSection" class="food-grid">
+            <div id="menuSection">
+                <div class="student-search-header">
+                    <h2>Today's Menu</h2>
+                    <div class="student-search-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="studentMenuSearch" class="search-input"
+                            placeholder="What are you craving?" onkeyup="filterStudentMenu()">
+                    </div>
+                </div>
+
+                <div class="category-filters" id="categoryFilters">
+                    <button class="filter-pill active" onclick="filterByCategory('all', this)">All Items</button>
+                    <button class="filter-pill" onclick="filterByCategory('breakfast', this)">Breakfast</button>
+                    <button class="filter-pill" onclick="filterByCategory('lunch', this)">Lunch</button>
+                    <button class="filter-pill" onclick="filterByCategory('snacks', this)">Snacks</button>
+                    <button class="filter-pill" onclick="filterByCategory('dinner', this)">Dinner</button>
+                </div>
+
+                <div id="menuGrid" class="food-grid"></div>
             </div>
 
             <div id="ordersSection" style="display:none;">
@@ -55,8 +72,16 @@
                     <div id="historyList" class="list-group"></div>
                 </div>
             </div>
+
+            <div id="walletSection" style="display:none;">
+                <div class="card">
+                    <h3>My Wallet</h3>
+                    <p>Wallet features coming soon...</p>
+                </div>
+            </div>
         </main>
     </div>
+
     <div id="qrModal"
         style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000;">
         <div

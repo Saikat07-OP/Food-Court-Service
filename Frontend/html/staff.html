@@ -47,33 +47,64 @@
             <div id="scanSection">
                 <div class="card" style="max-width: 600px; margin: 0 auto; text-align: center;">
                     <h3 style="margin-bottom: 10px; color: var(--text-dark);">Verify Student Order</h3>
-                    <p style="color: var(--text-gray); margin-bottom: 20px;">Align the QR code within the frame below</p>
+                    <p style="color: var(--text-gray); margin-bottom: 20px;">Align the QR code within the frame below
+                    </p>
                     <div id="reader"></div>
                 </div>
 
-                <div id="orderVerifyCard" class="card verify-card" style="max-width: 600px; margin: 20px auto;">
-                    <div class="status-banner">
-                        <i class="fas fa-check-circle" style="font-size: 1.5rem;"></i> Valid Paid Order
+                <div id="orderVerifyCard" class="card verify-card"
+                    style="max-width: 620px; margin: 30px auto; background: rgba(255,255,255,0.95); backdrop-filter: blur(16px); border-radius: 20px; padding: 28px; box-shadow: 0 12px 40px rgba(0,0,0,0.1); font-family: 'Poppins', sans-serif;">
+
+                    <!-- Status Banner -->
+                    <div class="status-banner"
+                        style="background: linear-gradient(135deg, #4CAF50, #00c853); color: #fff; padding: 16px; border-radius: 14px; text-align: center; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 24px; box-shadow: 0 8px 24px rgba(76,175,80,0.3);">
+                        <i class="fas fa-check-circle" style="font-size: 1.4rem;"></i>
+                        Valid Paid Order
                     </div>
 
-                    <div class="order-details-grid">
-                        <div class="detail-group">
-                            <p>Order ID</p>
-                            <h4 id="dispOrderId">#ORD123</h4>
+                    <!-- Order Details -->
+                    <div class="order-details-grid"
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                        <div class="detail-group"
+                            style="background: #f8faf9; padding: 16px; border-radius: 12px; border: 1px solid #e8eeeb;">
+                            <p
+                                style="margin: 0 0 4px; font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;">
+                                Order ID</p>
+                            <h4 id="dispOrderId" style="margin: 0; font-size: 1rem; font-weight: 700; color: #1f2937;">
+                                #ORD123</h4>
                         </div>
-                        <div class="detail-group">
-                            <p>Student Name</p>
-                            <h4 id="dispName">Student Name</h4>
+                        <div class="detail-group"
+                            style="background: #f8faf9; padding: 16px; border-radius: 12px; border: 1px solid #e8eeeb;">
+                            <p
+                                style="margin: 0 0 4px; font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;">
+                                Student Name</p>
+                            <h4 id="dispName" style="margin: 0; font-size: 1rem; font-weight: 700; color: #1f2937;">
+                                Student Name</h4>
                         </div>
                     </div>
 
-                    <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--text-dark);">Items to Serve:</h3>
-                    <ul id="dispItems" class="food-list"></ul>
+                    <!-- Items Section -->
+                    <div
+                        style="background: #fff; border: 1px solid #e8eeeb; border-radius: 14px; padding: 18px; margin-bottom: 24px;">
+                        <h3
+                            style="margin: 0 0 14px; font-size: 0.8rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em;">
+                            Items to Serve</h3>
+                        <div
+                            style="display: grid; grid-template-columns: 1fr 70px 80px; font-size: 0.7rem; font-weight: 500; color: #aaa; text-transform: uppercase; letter-spacing: 0.04em; padding: 0 12px 10px; border-bottom: 1px solid #f0f0f0;">
+                            <span>Item</span>
+                            <span style="text-align: center;">Qty</span>
+                            <span style="text-align: right;">Status</span>
+                        </div>
+                        <ul id="dispItems" class="food-list" style="list-style: none; padding: 0; margin: 0;"></ul>
+                    </div>
 
-                    <button class="btn-confirm" onclick="confirmServe()">
+                    <!-- Confirm Button -->
+                    <button class="btn-confirm" onclick="confirmServe()"
+                        style="width: 100%; background: linear-gradient(135deg, #4CAF50, #00c853); color: #fff; border: none; padding: 16px; border-radius: 14px; font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(76,175,80,0.3); transition: transform 0.15s, box-shadow 0.15s;">
                         <i class="fas fa-bell"></i> Confirm Food Served
                     </button>
                 </div>
+
 
                 <div class="card" style="margin-top: 20px;">
                     <h3 style="display: flex; justify-content: space-between;">

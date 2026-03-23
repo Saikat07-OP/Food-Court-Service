@@ -150,8 +150,7 @@ body {
   font-weight: 700;
   font-size: 1rem;
 }
-
-/* --- 📝 ULTRA COMPACT STRIP (New Queue Layout) --- */
+/* --- ULTRA COMPACT STRIP (New Queue Layout) --- */
 .queue-item-strip {
     background: var(--surface);
     border-radius: 8px;
@@ -211,7 +210,7 @@ body {
 }
 
 /* ========================================= */
-/* MOBILE RESPONSIVENESS (ICON-ONLY NAV)    */
+/* MOBILE RESPONSIVENESS    */
 /* ========================================= */
 @media (max-width: 700px) {
     .sidebar {
@@ -231,7 +230,7 @@ body {
         position: fixed;
     }
 
-    /* 🔥 HIDE ALL TEXT IN NAV */
+ 
     .nav-link span, 
     .nav-link p,
     .brand { 

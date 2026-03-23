@@ -10,17 +10,18 @@ document.addEventListener('DOMContentLoaded', () => {
     showSection('scan');
 });
 
-// 🔥 FIX: Allows mobile devices on local network to talk to laptop backend
+// --- API Routing ---
 function getBackendURL() {
     const hostname = window.location.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
         return 'http://localhost:5000';
     } else if (hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
-        return `http://${hostname}:5000`; // Local Wi-Fi testing
+        return `http://${hostname}:5000`; 
     }
     return 'https://food-court-service-backend.onrender.com';
 }
 
+// --- Navigation ---
 function showSection(sectionId) {
     const scanSec = document.getElementById('scanSection');
     const orderSec = document.getElementById('ordersSection');
@@ -81,7 +82,6 @@ async function loadPendingOrders() {
                 </div>
             `;
         }).join('');
-
     } catch (err) {
         console.error("Queue Error:", err);
     }
@@ -121,51 +121,72 @@ async function loadServedOrders() {
     }
 }
 
-// --- SCANNER LOGIC ---
+// --- 🔥 SCANNER LOGIC (FAST MOBILE CONFIG) ---
 function startScanner() {
     const readerElement = document.getElementById('reader');
     if (!readerElement || html5QrcodeScanner) return;
 
-    // 🔥 FIX: Removed strict constraints so laptop cameras stop crashing
+    // Removed heavy constraints. Reverted to standard, high-speed mobile config.
     html5QrcodeScanner = new Html5QrcodeScanner(
         "reader", 
-        { fps: 15, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true },
+        { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true },
         false
     );
     
     html5QrcodeScanner.render(onScanSuccess, onScanFailure);
 }
 
-// --- SCANNER SUCCESS ---
-function onScanSuccess(decodedText) {
+// --- 🔥 SCANNER SUCCESS (LIVE DATABASE CHECK) ---
+async function onScanSuccess(decodedText) {
+    // 1. Pause the camera immediately so it doesn't scan twice
+    if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
+
     try {
-        const orderData = JSON.parse(decodedText);
+        // Parse the QR code
+        const qrData = JSON.parse(decodedText);
+        const orderId = qrData.order_id;
         
-        currentScannedOrderId = orderData.order_id;
-        
-        document.getElementById('dispOrderId').innerText = orderData.order_id;
-        document.getElementById('dispName').innerText = orderData.payer_name || orderData.name || 'Student';
-        
-        // Handle items robustly
-        if (orderData.items && Array.isArray(orderData.items)) {
-            document.getElementById('dispItems').innerHTML = orderData.items.map(i => 
-                `<li><span class="food-qty">${i.qty || i.quantity}x</span> ${i.dish || i.dish_name}</li>`
-            ).join('');
-        } else {
-            document.getElementById('dispItems').innerHTML = '<li>Items hidden in QR</li>';
+        if (!orderId) throw new Error("Invalid Format");
+
+        // 2. Ask the database for the REAL live status of this order
+        const token = sessionStorage.getItem('token');
+        const res = await axios.get(`${getBackendURL()}/api/staff/order/${orderId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const liveOrder = res.data.order;
+
+        // 3. THE FIX: Check if already served!
+        if (liveOrder.order_status === 'served') {
+            showToast("❌ This Order is Already Served!", true);
+            // Resume camera after 2 seconds
+            setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
+            return;
         }
+
+        // 4. If it's valid, load the UI
+        currentScannedOrderId = liveOrder.order_id;
+        
+        document.getElementById('dispOrderId').innerText = liveOrder.order_id;
+        document.getElementById('dispName').innerText = liveOrder.user_id?.name || 'Student';
+        
+        document.getElementById('dispItems').innerHTML = liveOrder.items.map(i => 
+            `<li><span class="food-qty">${i.quantity}x</span> ${i.dish_name}</li>`
+        ).join('');
 
         document.getElementById('orderVerifyCard').style.display = 'block';
         document.getElementById('reader').style.display = 'none';
 
-        setTimeout(() => {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear().then(() => { html5QrcodeScanner = null; });
-            }
-        }, 100);
+        // Destroy scanner instance while serving
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear().then(() => { html5QrcodeScanner = null; });
+        }
 
-    } catch (e) {
-        showToast("Invalid QR Data Format", true);
+    } catch (err) {
+        console.error("Scan Error:", err);
+        showToast("Invalid QR Code", true);
+        // Resume camera on failure
+        setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
     }
 }
 
@@ -202,7 +223,6 @@ async function confirmServe() {
 
     } catch (err) {
         console.error("API Error:", err);
-        // Toast is now visible with CSS fix!
         showToast(err.response?.data?.message || "Server Communication Error", true);
     } finally {
         btn.disabled = false;
@@ -210,27 +230,17 @@ async function confirmServe() {
     }
 }
 
+// --- UTILS ---
 function showToast(m, isErr = false) {
     const t = document.getElementById("toast");
     if (!t) return;
+    
+    // Add a vibrate effect on error for mobile devices
+    if (isErr && navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
     t.innerHTML = `<i class="fas ${isErr ? 'fa-times-circle' : 'fa-check-circle'}"></i> ${m}`;
     t.className = `toast show ${isErr ? 'error' : ''}`;
     setTimeout(() => t.classList.remove("show"), 3000);
 }
 
 function logout() { sessionStorage.clear(); window.location.href = 'login.html'; }
-
-async function serveFromQueue(orderId) {
-    try {
-        const token = sessionStorage.getItem('token');
-        await axios.patch(`${getBackendURL()}/api/staff/${orderId}/serve`, {}, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        showToast("Order Served!");
-        loadPendingOrders(); 
-        loadServedOrders();  
-    } catch (err) {
-        showToast(err.response?.data?.message || "Error", true);
-    }
-}

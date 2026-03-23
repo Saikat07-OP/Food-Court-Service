@@ -169,7 +169,7 @@ async function onScanSuccess(decodedText) {
 
         // 3. THE FIX: Check if already served!
         if (liveOrder.order_status === 'served') {
-            showToast("❌ This Order is Already Served!", true);
+            showToast(" This Order is Already Served!", true);
             // Resume camera after 2 seconds
             setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
             return;
@@ -181,9 +181,20 @@ async function onScanSuccess(decodedText) {
         document.getElementById('dispOrderId').innerText = liveOrder.order_id;
         document.getElementById('dispName').innerText = liveOrder.user_id?.name || 'Student';
         
-        document.getElementById('dispItems').innerHTML = liveOrder.items.map(i => 
-            `<li><span class="food-qty">${i.quantity}x</span> ${i.dish_name}</li>`
-        ).join('');
+        // Build the new 3-column inline-styled list to match your new HTML!
+        document.getElementById('dispItems').innerHTML = liveOrder.items.map(i => `
+            <li style="display: grid; grid-template-columns: 1fr 70px 80px; align-items: center; padding: 14px 12px; border-bottom: 1px solid #f0f0f0;">
+                <span style="color: #1f2937; font-weight: 600; font-size: 0.9rem;">
+                    ${i.dish_name || i.dish}
+                </span>
+                <span style="text-align: center; font-weight: 700; color: #4CAF50; font-size: 0.9rem;">
+                    ${i.quantity || i.qty}
+                </span>
+                <span style="text-align: right; background: #e8f5e9; color: #4CAF50; padding: 4px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 600; justify-self: end;">
+                    Ready
+                </span>
+            </li>
+        `).join('');
 
         document.getElementById('orderVerifyCard').style.display = 'block';
         document.getElementById('reader').style.display = 'none';

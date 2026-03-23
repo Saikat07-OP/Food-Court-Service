@@ -150,7 +150,8 @@ body {
   font-weight: 700;
   font-size: 1rem;
 }
-/* --- ULTRA COMPACT STRIP (New Queue Layout) --- */
+
+/* --- ULTRA COMPACT STRIP (Queue Layout) --- */
 .queue-item-strip {
     background: var(--surface);
     border-radius: 8px;
@@ -196,12 +197,44 @@ body {
     color: var(--text-gray);
 }
 
-/* --- History List --- */
 .history-item {
   display: flex;
   justify-content: space-between;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
+}
+
+/* --- 🔥 TOAST NOTIFICATIONS (Crucial Fix) --- */
+.toast {
+    visibility: hidden;
+    min-width: 250px;
+    background-color: #10b981;
+    color: white;
+    text-align: center;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    z-index: 2000;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+    font-size: 1rem;
+    font-weight: 500;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    opacity: 0;
+    transition: opacity 0.3s, bottom 0.3s, visibility 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.toast.show {
+    visibility: visible;
+    opacity: 1;
+    bottom: 50px;
+}
+.toast.error {
+    background-color: #ef4444;
 }
 
 @keyframes slideIn {
@@ -230,7 +263,6 @@ body {
         position: fixed;
     }
 
- 
     .nav-link span, 
     .nav-link p,
     .brand { 
@@ -262,15 +294,7 @@ body {
         margin-bottom: 85px; 
     }
 
-    #reader { 
-        max-width: 220px !important; 
-    }
-    
-    #reader video {
-        height: 150px !important; 
-    }
-
-    .order-details-grid { 
-        grid-template-columns: 1fr; 
-    }
+    #reader { max-width: 220px !important; }
+    #reader video { height: 150px !important; }
+    .order-details-grid { grid-template-columns: 1fr; }
 }

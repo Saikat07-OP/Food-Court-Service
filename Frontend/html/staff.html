@@ -22,14 +22,16 @@
         <nav class="nav-links">
             <button class="nav-link active" onclick="showSection('scan')">
                 <i class="fas fa-camera"></i>
-                <span>Scan Orders</span> </button>
+                <span>Scan Orders</span>
+            </button>
             <button class="nav-link" onclick="showSection('orders')">
                 <i class="fas fa-clipboard-list"></i>
-                <span>Order Queue</span> </button>
-
+                <span>Order Queue</span>
+            </button>
             <button class="nav-link logout" onclick="logout()" style="margin: auto 12px 20px;">
                 <i class="fas fa-sign-out-alt"></i>
-                <span>Logout</span> </button>
+                <span>Logout</span>
+            </button>
         </nav>
     </aside>
 
@@ -45,16 +47,13 @@
             <div id="scanSection">
                 <div class="card" style="max-width: 600px; margin: 0 auto; text-align: center;">
                     <h3 style="margin-bottom: 10px; color: var(--text-dark);">Verify Student Order</h3>
-                    <p style="color: var(--text-gray); margin-bottom: 20px;">Align the QR code within the frame below
-                    </p>
-
+                    <p style="color: var(--text-gray); margin-bottom: 20px;">Align the QR code within the frame below</p>
                     <div id="reader"></div>
                 </div>
 
                 <div id="orderVerifyCard" class="card verify-card" style="max-width: 600px; margin: 20px auto;">
                     <div class="status-banner">
-                        <i class="fas fa-check-circle" style="font-size: 1.5rem;"></i>
-                        Valid Paid Order
+                        <i class="fas fa-check-circle" style="font-size: 1.5rem;"></i> Valid Paid Order
                     </div>
 
                     <div class="order-details-grid">
@@ -69,20 +68,19 @@
                     </div>
 
                     <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--text-dark);">Items to Serve:</h3>
-                    <ul id="dispItems" class="food-list">
-                    </ul>
+                    <ul id="dispItems" class="food-list"></ul>
 
                     <button class="btn-confirm" onclick="confirmServe()">
                         <i class="fas fa-bell"></i> Confirm Food Served
                     </button>
                 </div>
+
                 <div class="card" style="margin-top: 20px;">
                     <h3 style="display: flex; justify-content: space-between;">
                         <span><i class="fas fa-history"></i> Served Today</span>
                         <span id="servedCount" class="badge-count">0</span>
                     </h3>
-                    <div id="recentlyServedList">
-                    </div>
+                    <div id="recentlyServedList"></div>
                 </div>
             </div>
 
@@ -95,6 +93,7 @@
             </div>
         </div>
     </main>
+
     <div id="toast" class="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>

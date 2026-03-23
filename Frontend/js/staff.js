@@ -10,10 +10,15 @@ document.addEventListener('DOMContentLoaded', () => {
     showSection('scan');
 });
 
+// 🔥 FIX: Allows mobile devices on local network to talk to laptop backend
 function getBackendURL() {
-    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:5000'
-        : 'https://food-court-service-backend.onrender.com';
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:5000';
+    } else if (hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+        return `http://${hostname}:5000`; // Local Wi-Fi testing
+    }
+    return 'https://food-court-service-backend.onrender.com';
 }
 
 function showSection(sectionId) {
@@ -33,16 +38,15 @@ function showSection(sectionId) {
         startScanner();
         loadServedOrders();
     } else {
-        // If we leave the scan section, stop the camera to save battery/prevent crashes
         if (html5QrcodeScanner) {
-            html5QrcodeScanner.clear().catch(err => console.error("Scanner clear error", err));
+            html5QrcodeScanner.clear().catch(err => console.error(err));
             html5QrcodeScanner = null;
         }
     }
     if (sectionId === 'orders') loadPendingOrders();
 }
 
-// ---QUEUE: LOAD PAID BUT NOT SERVED ---
+// --- QUEUE: LOAD PAID BUT NOT SERVED ---
 async function loadPendingOrders() {
     const list = document.getElementById('pendingList');
     if (!list) return;
@@ -61,7 +65,7 @@ async function loadPendingOrders() {
         }
 
         list.innerHTML = orders.map(order => {
-            const itemsSummary = order.items.map(i => `${i.quantity}x ${i.dish_name}`).join(', ');
+            const itemsSummary = order.items.map(i => `${i.quantity}x ${i.dish_name || i.dish}`).join(', ');
             const orderTime = new Date(order.order_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             return `
@@ -83,7 +87,7 @@ async function loadPendingOrders() {
     }
 }
 
-// ---  HISTORY: SERVED TODAY ---
+// --- HISTORY: SERVED TODAY ---
 async function loadServedOrders() {
     const list = document.getElementById('recentlyServedList');
     if (!list) return;
@@ -117,55 +121,73 @@ async function loadServedOrders() {
     }
 }
 
-// ---  SCANNER LOGIC ---
+// --- SCANNER LOGIC ---
 function startScanner() {
     const readerElement = document.getElementById('reader');
     if (!readerElement || html5QrcodeScanner) return;
 
-    html5QrcodeScanner = new Html5QrcodeScanner("reader", {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true
-    });
-
+    // 🔥 FIX: Removed strict constraints so laptop cameras stop crashing
+    html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", 
+        { fps: 15, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true },
+        false
+    );
+    
     html5QrcodeScanner.render(onScanSuccess, onScanFailure);
 }
 
+// --- SCANNER SUCCESS ---
 function onScanSuccess(decodedText) {
     try {
         const orderData = JSON.parse(decodedText);
+        
         currentScannedOrderId = orderData.order_id;
-
-        // Populate UI
+        
         document.getElementById('dispOrderId').innerText = orderData.order_id;
-        document.getElementById('dispName').innerText = orderData.payer_name;
-        document.getElementById('dispItems').innerHTML = orderData.items.map(i => `<li><span class="food-qty">${i.qty}x</span> ${i.dish}</li>`).join('');
+        document.getElementById('dispName').innerText = orderData.payer_name || orderData.name || 'Student';
+        
+        // Handle items robustly
+        if (orderData.items && Array.isArray(orderData.items)) {
+            document.getElementById('dispItems').innerHTML = orderData.items.map(i => 
+                `<li><span class="food-qty">${i.qty || i.quantity}x</span> ${i.dish || i.dish_name}</li>`
+            ).join('');
+        } else {
+            document.getElementById('dispItems').innerHTML = '<li>Items hidden in QR</li>';
+        }
 
         document.getElementById('orderVerifyCard').style.display = 'block';
         document.getElementById('reader').style.display = 'none';
 
-        // Clear scanner after successful scan
-        if (html5QrcodeScanner) {
-            html5QrcodeScanner.clear().then(() => {
-                html5QrcodeScanner = null;
-            }).catch(err => console.error(err));
-        }
+        setTimeout(() => {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().then(() => { html5QrcodeScanner = null; });
+            }
+        }, 100);
+
     } catch (e) {
-        showToast("Invalid QR Data", true);
+        showToast("Invalid QR Data Format", true);
     }
 }
 
 function onScanFailure(error) { /* Routine failure - do nothing */ }
 
+// --- CONFIRM SERVE ---
 async function confirmServe() {
-    if (!currentScannedOrderId) return;
+    if (!currentScannedOrderId) {
+        showToast("Error: No order ID found. Please re-scan.", true);
+        return;
+    }
+
     const btn = document.querySelector('.btn-confirm');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
     try {
-        await axios.patch(`${getBackendURL()}/api/staff/${currentScannedOrderId}/serve`, {}, {
-            headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` }
+        const token = sessionStorage.getItem('token');
+        const url = `${getBackendURL()}/api/staff/${currentScannedOrderId}/serve`;
+        
+        await axios.patch(url, {}, {
+            headers: { Authorization: `Bearer ${token}` }
         });
 
         showToast("Order Served Successfully!");
@@ -173,18 +195,15 @@ async function confirmServe() {
         document.getElementById('orderVerifyCard').style.display = 'none';
         document.getElementById('reader').style.display = 'block';
 
-        // Clear data
-        document.getElementById('dispOrderId').innerText = "";
-        document.getElementById('dispName').innerText = "";
-        document.getElementById('dispItems').innerHTML = "";
-
         currentScannedOrderId = null;
 
-        // Restart everything
         startScanner();
-        loadServedOrders();
+        loadServedOrders(); 
+
     } catch (err) {
-        showToast(err.response?.data?.message || "Error", true);
+        console.error("API Error:", err);
+        // Toast is now visible with CSS fix!
+        showToast(err.response?.data?.message || "Server Communication Error", true);
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-bell"></i> Confirm Food Served';
@@ -202,8 +221,6 @@ function showToast(m, isErr = false) {
 function logout() { sessionStorage.clear(); window.location.href = 'login.html'; }
 
 async function serveFromQueue(orderId) {
-    if (!confirm(`Mark Order #${orderId} as served?`)) return;
-
     try {
         const token = sessionStorage.getItem('token');
         await axios.patch(`${getBackendURL()}/api/staff/${orderId}/serve`, {}, {
@@ -211,8 +228,8 @@ async function serveFromQueue(orderId) {
         });
 
         showToast("Order Served!");
-        loadPendingOrders(); // Refresh the queue
-        loadServedOrders();  // Refresh history if it's on the same page
+        loadPendingOrders(); 
+        loadServedOrders();  
     } catch (err) {
         showToast(err.response?.data?.message || "Error", true);
     }

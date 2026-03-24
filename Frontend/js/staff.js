@@ -2,12 +2,18 @@ let html5QrcodeScanner;
 let currentScannedOrderId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    showLoader("Loading Dashboard...");
+
     const user = JSON.parse(sessionStorage.getItem('user'));
     const staffNameEl = document.getElementById('staffName');
     if (user && staffNameEl) {
         staffNameEl.textContent = `Staff | ${user.name || 'Member'}`;
     }
     showSection('scan');
+
+    setTimeout(() => {
+        hideLoader(); 
+    }, 500);
 });
 
 // --- API Routing ---
@@ -149,8 +155,9 @@ function startScanner() {
 
 // ---  SCANNER SUCCESS (LIVE DATABASE CHECK) ---
 async function onScanSuccess(decodedText) {
-    // 1. Pause the camera immediately so it doesn't scan twice
     if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
+
+    showLoader("Verifying QR...");
 
     try {
         // Parse the QR code
@@ -159,7 +166,6 @@ async function onScanSuccess(decodedText) {
         
         if (!orderId) throw new Error("Invalid Format");
 
-        // 2. Ask the database for the REAL live status of this order
         const token = sessionStorage.getItem('token');
         const res = await axios.get(`${getBackendURL()}/api/staff/order/${orderId}`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -167,21 +173,19 @@ async function onScanSuccess(decodedText) {
 
         const liveOrder = res.data.order;
 
-        // 3. THE FIX: Check if already served!
         if (liveOrder.order_status === 'served') {
+            hideLoader();
             showToast(" This Order is Already Served!", true);
-            // Resume camera after 2 seconds
             setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
             return;
         }
 
-        // 4. If it's valid, load the UI
         currentScannedOrderId = liveOrder.order_id;
         
         document.getElementById('dispOrderId').innerText = liveOrder.order_id;
         document.getElementById('dispName').innerText = liveOrder.user_id?.name || 'Student';
         
-        // Build the new 3-column inline-styled list to match your new HTML!
+
         document.getElementById('dispItems').innerHTML = liveOrder.items.map(i => `
             <li style="display: grid; grid-template-columns: 1fr 70px 80px; align-items: center; padding: 14px 12px; border-bottom: 1px solid #f0f0f0;">
                 <span style="color: #1f2937; font-weight: 600; font-size: 0.9rem;">
@@ -199,7 +203,6 @@ async function onScanSuccess(decodedText) {
         document.getElementById('orderVerifyCard').style.display = 'block';
         document.getElementById('reader').style.display = 'none';
 
-        // Destroy scanner instance while serving
         if (html5QrcodeScanner) {
             html5QrcodeScanner.clear().then(() => { html5QrcodeScanner = null; });
         }
@@ -207,8 +210,9 @@ async function onScanSuccess(decodedText) {
     } catch (err) {
         console.error("Scan Error:", err);
         showToast("Invalid QR Code", true);
-        // Resume camera on failure
         setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
+    } finally {
+        hideLoader();
     }
 }
 
@@ -220,6 +224,8 @@ async function confirmServe() {
         showToast("Error: No order ID found. Please re-scan.", true);
         return;
     }
+
+    showLoader("Serving Order...");
 
     const btn = document.querySelector('.btn-confirm');
     btn.disabled = true;
@@ -249,6 +255,8 @@ async function confirmServe() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-bell"></i> Confirm Food Served';
+        
+        hideLoader();
     }
 }
 
@@ -263,6 +271,21 @@ function showToast(m, isErr = false) {
     t.innerHTML = `<i class="fas ${isErr ? 'fa-times-circle' : 'fa-check-circle'}"></i> ${m}`;
     t.className = `toast show ${isErr ? 'error' : ''}`;
     setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+// --- LOADER CONTROLS ---
+function showLoader(text = "Processing...") {
+    const loader = document.getElementById('globalLoader');
+    const textEl = document.getElementById('loaderText');
+    if (loader && textEl) {
+        textEl.innerText = text;
+        loader.classList.add('active');
+    }
+}
+
+function hideLoader() {
+    const loader = document.getElementById('globalLoader');
+    if (loader) loader.classList.remove('active');
 }
 
 function logout() { sessionStorage.clear(); window.location.href = 'login.html'; }

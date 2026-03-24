@@ -1,9 +1,33 @@
 // ==========================================
+// UTILITY: BACKEND URL & LOADERS
+// ==========================================
+function getBackendURL() {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000'; 
+    }
+    return 'https://food-court-service-backend.onrender.com'; 
+}
+
+function showLoader(text = "Loading...") {
+    const loader = document.getElementById('globalLoader');
+    const textEl = document.getElementById('loaderText');
+    if (loader && textEl) {
+        textEl.innerText = text;
+        loader.classList.add('active');
+    }
+}
+
+function hideLoader() {
+    const loader = document.getElementById('globalLoader');
+    if (loader) loader.classList.remove('active');
+}
+
+// ==========================================
 // 1. POPUP & NOTIFICATION SYSTEM (No Alerts)
 // ==========================================
 function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
-    if (!container) return; // Failsafe if HTML is missing
+    if (!container) return; 
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -13,7 +37,6 @@ function showToast(message, type = 'success') {
 
     container.appendChild(toast);
 
-    // Auto-remove after animation
     setTimeout(() => {
         toast.remove();
     }, 3300);
@@ -32,7 +55,6 @@ function closeConfirmModal() {
     confirmActionCallback = null;
 }
 
-// Attach listener to the Yes button only once
 document.addEventListener('DOMContentLoaded', () => {
     const confirmBtn = document.getElementById('confirmYesBtn');
     if (confirmBtn) {
@@ -43,14 +65,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-
 // ==========================================
-// 2. INITIALIZATION & NAVIGATION
+// 2. INITIALIZATION & NAVIGATION (With Memory)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     const user = JSON.parse(sessionStorage.getItem('user'));
 
-    // Security Kick-out
     if (!user || user.role !== 'admin') {
         window.location.href = 'login.html';
         return;
@@ -59,7 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('adminName').textContent = user.name;
     document.getElementById('currentDate').textContent = new Date().toDateString();
 
-    showSection('overview');
+    const lastSection = sessionStorage.getItem('adminActiveSection') || 'overview';
+    showSection(lastSection);
 });
 
 function showSection(sectionId) {
@@ -69,24 +90,24 @@ function showSection(sectionId) {
         'manage-menu': 'manageMenuSection'
     };
 
-    // Hide all
     Object.values(sections).forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
 
-    // Show active
     const activeEl = document.getElementById(sections[sectionId]);
     if (activeEl) activeEl.style.display = 'block';
 
-    // Update Sidebar highlighting
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
         if (link.getAttribute('onclick') && link.getAttribute('onclick').includes(`'${sectionId}'`)) {
             link.classList.add('active');
         }
     });
-    // Load Data based on active tab
+
+    // SAVE TAB STATE: Remembers where the admin is!
+    sessionStorage.setItem('adminActiveSection', sectionId);
+
     if (sectionId === 'overview') {
         loadOverview();
         loadUsers();
@@ -103,6 +124,7 @@ function showSection(sectionId) {
 // OVERVIEW DASHBOARD DATA
 // ==========================================
 async function loadOverview(selectedDate = null) {
+    showLoader("Loading Dashboard..."); 
     try {
         const token = sessionStorage.getItem('token');
         const backendURL = getBackendURL();
@@ -111,7 +133,6 @@ async function loadOverview(selectedDate = null) {
         const dateInput = document.getElementById('overviewDate');
         if (dateInput) dateInput.value = dateToFetch;
 
-        // 1. Get Summary Stats
         const summaryRes = await axios.get(`${backendURL}/api/staff/summary?date=${dateToFetch}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
@@ -119,7 +140,6 @@ async function loadOverview(selectedDate = null) {
         document.getElementById('totalOrders').innerText = summary.totalOrders || 0;
         document.getElementById('totalRevenue').innerText = `₹${summary.totalRevenue || 0}`;
 
-        // 2. Get Recent Orders 
         const ordersRes = await axios.get(`${backendURL}/api/orders/manage/all?limit=50&date=${dateToFetch}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
@@ -154,8 +174,11 @@ async function loadOverview(selectedDate = null) {
     } catch (err) {
         console.error("Overview Load Error:", err);
         showToast("Failed to load dashboard data", "error");
+    } finally {
+        hideLoader(); 
     }
 }
+
 function handleDateChange() {
     const pickedDate = document.getElementById('overviewDate').value;
     if (pickedDate) {
@@ -168,11 +191,11 @@ function handleDateChange() {
 // 3. USER MANAGEMENT
 // ==========================================
 async function loadUsers() {
+    showLoader("Loading Users..."); 
     const tbody = document.getElementById('userTableBody');
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Fetching users...</td></tr>';
 
     try {
-        // Because api.js returns res.data, users is the final array
         const users = await api.getUsers();
 
         if (!users || users.length === 0) {
@@ -198,13 +221,14 @@ async function loadUsers() {
     } catch (err) {
         console.error("Load Users Error:", err);
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Failed to load users from database.</td></tr>';
+    } finally {
+        hideLoader(); 
     }
 }
 
 async function handleUserSubmit(event) {
     event.preventDefault();
-
-    // Safely grabbing optional fields if they exist, otherwise applying defaults for Mongoose
+    
     const phoneInput = document.getElementById('userPhone');
     const deptInput = document.getElementById('userDept');
 
@@ -219,6 +243,7 @@ async function handleUserSubmit(event) {
         status: "active"
     };
 
+    showLoader("Adding User..."); 
     try {
         await api.addUser(userData);
         showToast("User added successfully!", "success");
@@ -227,26 +252,31 @@ async function handleUserSubmit(event) {
     } catch (err) {
         console.error("Add User Error:", err);
         showToast(err.response?.data?.message || "Error adding user to database", "error");
+    } finally {
+        hideLoader(); 
     }
 }
 
 function triggerDeleteUser(id) {
     showConfirm("Are you sure you want to permanently delete this user?", async () => {
+        showLoader("Deleting User..."); 
         try {
             await api.deleteUser(id);
             showToast("User deleted successfully.", "success");
             loadUsers();
         } catch (err) {
             showToast("Failed to delete user.", "error");
+        } finally {
+            hideLoader(); 
         }
     });
 }
-
 
 // ==========================================
 // 4. MENU MANAGEMENT
 // ==========================================
 async function loadAdminMenu() {
+    showLoader("Loading Menu..."); 
     const grid = document.getElementById('adminMenuGrid');
     grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Loading menu...</p>';
 
@@ -258,7 +288,6 @@ async function loadAdminMenu() {
         for (const [category, items] of Object.entries(menu)) {
             if (Array.isArray(items)) {
                 items.forEach(item => {
-                    // Fallback image if none provided
                     const imgSrc = item.image_url || 'https://imgs.search.brave.com/eJrOBBqXjPdhO8ejCg9Vz4Tkubh4-rLONNGdACLq9vQ/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9wbHVz/LnVuc3BsYXNoLmNv/bS9wcmVtaXVtX3Zl/Y3Rvci0xNzEzMzY0/MzkzMDg1LTBmZGRh/MTNlYzdjZD9mbT1q/cGcmcT02MCZ3PTMw/MDAmaXhsaWI9cmIt/NC4xLjA';
 
                     html += `
@@ -289,21 +318,23 @@ async function loadAdminMenu() {
     } catch (err) {
         console.error("Load Menu Error:", err);
         grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:red;">Error loading menu.</p>';
+    } finally {
+        hideLoader(); 
     }
 }
 
 async function handleMenuSubmit(event) {
     event.preventDefault();
 
-    // Grab all the data, including the new Quantity field
     const dishData = {
         dish_name: document.getElementById('dishName').value,
-        price: Number(document.getElementById('dishPrice').value), // Make sure it's sent as a number
+        price: Number(document.getElementById('dishPrice').value), 
         category: document.getElementById('dishCategory').value,
         image_url: document.getElementById('dishImg').value,
-        available_quantity: Number(document.getElementById('dishQuantity').value) // Dynamic Quantity!
+        available_quantity: Number(document.getElementById('dishQuantity').value) 
     };
 
+    showLoader("Adding Dish..."); 
     try {
         await api.addMenuItem(dishData);
         showToast("Dish added successfully!", "success");
@@ -311,17 +342,22 @@ async function handleMenuSubmit(event) {
         loadAdminMenu();
     } catch (err) {
         showToast(err.response?.data?.message || "Error adding dish.", "error");
+    } finally {
+        hideLoader(); 
     }
 }
 
 function triggerDeleteItem(id) {
     showConfirm("Remove this dish from the canteen menu?", async () => {
+        showLoader("Removing Dish..."); 
         try {
             await api.deleteMenuItem(id);
             showToast("Dish removed from menu.", "success");
             loadAdminMenu();
         } catch (err) {
             showToast("Failed to delete dish.", "error");
+        } finally {
+            hideLoader(); 
         }
     });
 }
@@ -331,25 +367,18 @@ function triggerDeleteItem(id) {
 // ==========================================
 let currentStockUpdateId = null;
 
-// 1. Open the beautiful modal instead of an alert
 function triggerUpdateStock(id, dishName, currentQty) {
     currentStockUpdateId = id;
-
-    // Fill the modal with the current info
     document.getElementById('stockDishName').textContent = dishName;
     document.getElementById('newStockInput').value = currentQty;
-
-    // Show the modal
     document.getElementById('stockModal').style.display = 'block';
 }
 
-// 2. Close the modal
 function closeStockModal() {
     document.getElementById('stockModal').style.display = 'none';
     currentStockUpdateId = null;
 }
 
-// 3. Handle the actual update when they click "Update"
 async function submitUpdateStock() {
     const newQtyStr = document.getElementById('newStockInput').value;
     const dishName = document.getElementById('stockDishName').textContent;
@@ -361,9 +390,10 @@ async function submitUpdateStock() {
         return showToast("Please enter a valid number (0 or higher).", "error");
     }
 
+    showLoader(`Updating ${dishName}...`); 
     try {
         const token = sessionStorage.getItem('token');
-        const backendURL = 'https://food-court-service-backend.onrender.com';
+        const backendURL = getBackendURL();
 
         await axios.put(`${backendURL}/api/menu/${currentStockUpdateId}`,
             { available_quantity: newQty },
@@ -373,16 +403,68 @@ async function submitUpdateStock() {
         showToast(`${dishName} stock updated to ${newQty}!`, "success");
 
         closeStockModal();
-        loadAdminMenu(); // Refresh the cards to show the new number!
-
+        loadAdminMenu(); 
     } catch (err) {
         console.error("Update Stock Error:", err);
         showToast(err.response?.data?.message || "Failed to update stock.", "error");
+    } finally {
+        hideLoader(); 
     }
 }
 
 // ==========================================
-// 5. UTILITY FUNCTIONS
+// SEARCH & CANTEEN TOGGLE LOGIC
+// ==========================================
+function filterMenu() {
+    const query = document.getElementById('menuSearch').value.toLowerCase();
+    const cards = document.querySelectorAll('#adminMenuGrid .card');
+    
+    cards.forEach(card => {
+        const dishName = card.querySelector('h4').textContent.toLowerCase();
+        card.style.display = dishName.includes(query) ? 'block' : 'none';
+    });
+}
+
+async function loadCanteenStatus() {
+    try {
+        const backendURL = getBackendURL();
+        const res = await axios.get(`${backendURL}/api/menu/status`);
+        updateToggleButton(res.data.isOpen);
+    } catch (err) { 
+        console.error("Status check failed:", err.response || err); 
+    }
+}
+
+async function toggleCanteenStatus() {
+    showLoader("Updating Status..."); 
+    try {
+        const token = sessionStorage.getItem('token');
+        const backendURL = getBackendURL();
+        
+        const res = await axios.post(`${backendURL}/api/menu/status/toggle`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        updateToggleButton(res.data.isOpen);
+        showToast(res.data.message, res.data.isOpen ? "success" : "error");
+    } catch (err) { 
+        console.error("Toggle Error details:", err.response || err);
+        const errorMsg = err.response?.data?.message || "Failed to change status";
+        showToast(errorMsg, "error"); 
+    } finally {
+        hideLoader(); 
+    }
+}
+
+function updateToggleButton(isOpen) {
+    const btn = document.getElementById('canteenToggleBtn');
+    if (!btn) return;
+    btn.innerHTML = isOpen ? '<i class="fas fa-store"></i> Canteen OPEN' : '<i class="fas fa-store-slash"></i> Canteen CLOSED';
+    btn.style.background = isOpen ? '#10b981' : '#ef4444'; 
+}
+
+// ==========================================
+// 5. MODAL CLOSING & LOGOUT UTILITIES
 // ==========================================
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -407,7 +489,6 @@ function logout() {
     window.location.href = 'login.html';
 }
 
-// Close modals if clicking outside the white box
 window.onclick = function (event) {
     if (event.target.classList.contains('modal')) {
         closeModals();
@@ -415,107 +496,3 @@ window.onclick = function (event) {
         closeStockModal();
     }
 };
-
-// ==========================================
-// SEARCH & CANTEEN TOGGLE LOGIC
-// ==========================================
-
-// 1. Live Instant Search!
-function filterMenu() {
-    const query = document.getElementById('menuSearch').value.toLowerCase();
-    const cards = document.querySelectorAll('#adminMenuGrid .card'); // Grabs all generated food cards
-
-    cards.forEach(card => {
-        const dishName = card.querySelector('h4').textContent.toLowerCase();
-        // If the dish name matches the search, show it. Otherwise, hide it!
-        card.style.display = dishName.includes(query) ? 'block' : 'none';
-    });
-}
-
-// 2. Load the current ON/OFF status when you open the Menu tab
-async function loadCanteenStatus() {
-    try {
-        const backendURL = 'https://food-court-service-backend.onrender.com';
-        const res = await axios.get(`${backendURL}/api/menu/status`);
-        updateToggleButton(res.data.isOpen);
-    } catch (err) { console.error("Status check failed"); }
-}
-
-// 3. Flip the switch!
-async function toggleCanteenStatus() {
-    try {
-        const token = sessionStorage.getItem('token');
-        const backendURL = 'https://food-court-service-backend.onrender.com';
-        const res = await axios.post(`${backendURL}/api/menu/status/toggle`, {}, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        updateToggleButton(res.data.isOpen);
-        showToast(res.data.message, res.data.isOpen ? "success" : "error");
-    } catch (err) { showToast("Failed to change status", "error"); }
-}
-
-// Helper to change the button color safely
-function updateToggleButton(isOpen) {
-    const btn = document.getElementById('canteenToggleBtn');
-    if (!btn) return;
-    btn.innerHTML = isOpen ? '<i class="fas fa-store"></i> Canteen OPEN' : '<i class="fas fa-store-slash"></i> Canteen CLOSED';
-    btn.style.background = isOpen ? '#10b981' : '#ef4444'; // Green if open, Red if closed
-}
-
-// Smart URL detector!
-function getBackendURL() {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'http://localhost:5000'; // Uses your local backend when testing
-    }
-    return 'https://food-court-service-backend.onrender.com'; // Uses Render when live
-}
-
-// 1. Live Instant Search!
-function filterMenu() {
-    const query = document.getElementById('menuSearch').value.toLowerCase();
-    const cards = document.querySelectorAll('#adminMenuGrid .card');
-    
-    cards.forEach(card => {
-        const dishName = card.querySelector('h4').textContent.toLowerCase();
-        card.style.display = dishName.includes(query) ? 'block' : 'none';
-    });
-}
-
-// 2. Load the current ON/OFF status
-async function loadCanteenStatus() {
-    try {
-        const backendURL = getBackendURL();
-        const res = await axios.get(`${backendURL}/api/menu/status`);
-        updateToggleButton(res.data.isOpen);
-    } catch (err) { 
-        console.error("Status check failed:", err.response || err); 
-    }
-}
-
-// 3. Flip the switch!
-async function toggleCanteenStatus() {
-    try {
-        const token = sessionStorage.getItem('token');
-        const backendURL = getBackendURL();
-        
-        const res = await axios.post(`${backendURL}/api/menu/status/toggle`, {}, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        updateToggleButton(res.data.isOpen);
-        showToast(res.data.message, res.data.isOpen ? "success" : "error");
-    } catch (err) { 
-        // We log the EXACT error to the console now so we aren't guessing!
-        console.error("Toggle Error details:", err.response || err);
-        const errorMsg = err.response?.data?.message || "Failed to change status";
-        showToast(errorMsg, "error"); 
-    }
-}
-
-// Helper to change the button color safely
-function updateToggleButton(isOpen) {
-    const btn = document.getElementById('canteenToggleBtn');
-    if (!btn) return;
-    btn.innerHTML = isOpen ? '<i class="fas fa-store"></i> Canteen OPEN' : '<i class="fas fa-store-slash"></i> Canteen CLOSED';
-    btn.style.background = isOpen ? '#10b981' : '#ef4444'; 
-}

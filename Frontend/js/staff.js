@@ -1,62 +1,246 @@
-let html5QrcodeScanner;
+let html5QrcodeScanner = null;
 let currentScannedOrderId = null;
 
-document.addEventListener('DOMContentLoaded', () => {
-    showLoader("Loading Dashboard...");
-
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    const staffNameEl = document.getElementById('staffName');
-    if (user && staffNameEl) {
-        staffNameEl.textContent = `Staff | ${user.name || 'Member'}`;
+// ==========================================
+// UTILITY: BACKEND URL & LOADERS
+// ==========================================
+function getBackendURL() {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000'; 
     }
-    showSection('scan');
+    return 'https://food-court-service-backend.onrender.com'; 
+}
+
+function showLoader(text = "Loading...") {
+    const loader = document.getElementById('globalLoader');
+    const textEl = document.getElementById('loaderText');
+    if (loader && textEl) {
+        textEl.innerText = text;
+        loader.classList.add('active');
+    }
+}
+
+function hideLoader() {
+    const loader = document.getElementById('globalLoader');
+    if (loader) loader.classList.remove('active');
+}
+
+// ==========================================
+// POPUP & NOTIFICATION SYSTEM (No Alerts)
+// ==========================================
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toastContainer');
+    
+    // Auto-create container if missing
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        document.body.appendChild(container);
+        container.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none;';
+    }
+
+    const toast = document.createElement('div');
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-times-circle';
+    const bgColor = type === 'success' ? '#10b981' : '#ef4444';
+
+    toast.innerHTML = `<i class="fas ${icon}" style="font-size: 1.2rem;"></i> <span style="margin-left: 10px; white-space: nowrap;">${message}</span>`;
+    toast.style.cssText = `background-color: ${bgColor}; color: #ffffff; padding: 14px 24px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); display: flex; align-items: center; font-size: 1rem; font-weight: 500; opacity: 0; transform: translateY(20px); transition: all 0.3s ease-out;`;
+
+    container.appendChild(toast);
 
     setTimeout(() => {
-        hideLoader(); 
-    }, 500);
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    }, 10);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ==========================================
+// INITIALIZATION & NAVIGATION (With Memory)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    
+    if (!user || user.role !== 'staff') {
+        window.location.href = 'login.html';
+        return;
+    }
+    
+    const staffNameEl = document.getElementById('staffName');
+    if (staffNameEl) {
+        staffNameEl.textContent = `Staff | ${user.name || 'Member'}`;
+    }
+
+    // Restore the last open tab (defaults to 'scan')
+    const lastSection = sessionStorage.getItem('staffActiveSection') || 'scan';
+    showSection(lastSection);
 });
 
-// --- API Routing ---
-function getBackendURL() {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:5000';
-    } else if (hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
-        return `http://${hostname}:5000`; 
-    }
-    return 'https://food-court-service-backend.onrender.com';
-}
-
-// --- Navigation ---
 function showSection(sectionId) {
-    const scanSec = document.getElementById('scanSection');
-    const orderSec = document.getElementById('ordersSection');
-
-    if (scanSec) scanSec.style.display = sectionId === 'scan' ? 'block' : 'none';
-    if (orderSec) orderSec.style.display = sectionId === 'orders' ? 'block' : 'none';
-
+    const sections = ['scanSection', 'queueSection', 'historySection'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    
+    const activeSection = document.getElementById(`${sectionId}Section`);
+    if (activeSection) {
+        activeSection.style.display = 'block'; 
+    }
+    
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
-        const onclickAttr = link.getAttribute('onclick') || "";
-        if (onclickAttr.includes(`'${sectionId}'`)) link.classList.add('active');
+        if (link.getAttribute('onclick').includes(`'${sectionId}'`)) {
+            link.classList.add('active');
+        }
     });
 
+    // Save the current tab to storage
+    sessionStorage.setItem('staffActiveSection', sectionId);
+
+    // Load data based on the tab
+    if (sectionId === 'queue') loadPendingOrders();
+    if (sectionId === 'history') loadServedOrders();
     if (sectionId === 'scan') {
+        document.getElementById('orderVerifyCard').style.display = 'none';
+        document.getElementById('reader').style.display = 'block';
         startScanner();
-        loadServedOrders();
     } else {
         if (html5QrcodeScanner) {
-            html5QrcodeScanner.clear().catch(err => console.error(err));
-            html5QrcodeScanner = null;
+            html5QrcodeScanner.clear().then(() => { html5QrcodeScanner = null; });
         }
     }
-    if (sectionId === 'orders') loadPendingOrders();
+    
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar && sidebar.classList.contains('active')) {
+        toggleSidebar();
+    }
 }
 
-// --- QUEUE: LOAD PAID BUT NOT SERVED ---
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.classList.toggle('active');
+}
+
+// ==========================================
+// SCANNER LOGIC
+// ==========================================
+function startScanner() {
+    if (html5QrcodeScanner) return; 
+
+    html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+        false
+    );
+    html5QrcodeScanner.render(onScanSuccess, (err) => { /* Ignore minor scan errors */ });
+}
+
+async function onScanSuccess(decodedText) {
+    if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
+
+    showLoader("Verifying QR...");
+
+    try {
+        const qrData = JSON.parse(decodedText);
+        const orderId = qrData.order_id;
+        
+        if (!orderId) throw new Error("Invalid Format");
+
+        const token = sessionStorage.getItem('token');
+        const res = await axios.get(`${getBackendURL()}/api/staff/order/${orderId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const liveOrder = res.data.order;
+
+        if (liveOrder.order_status === 'served') {
+            hideLoader(); 
+            showToast("This Order is Already Served!", "error");
+            setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
+            return;
+        }
+
+        currentScannedOrderId = liveOrder.order_id;
+        
+        document.getElementById('dispOrderId').innerText = liveOrder.order_id;
+        document.getElementById('dispName').innerText = liveOrder.user_id?.name || 'Student';
+        
+        document.getElementById('dispItems').innerHTML = liveOrder.items.map(i => `
+            <li style="display: grid; grid-template-columns: 1fr 70px 80px; align-items: center; padding: 14px 12px; border-bottom: 1px solid #f0f0f0;">
+                <span style="color: #1f2937; font-weight: 600; font-size: 0.9rem;">
+                    ${i.dish_name || i.dish}
+                </span>
+                <span style="text-align: center; font-weight: 700; color: #4CAF50; font-size: 0.9rem;">
+                    ${i.quantity || i.qty}
+                </span>
+                <span style="text-align: right; background: #e8f5e9; color: #4CAF50; padding: 4px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 600; justify-self: end;">
+                    Ready
+                </span>
+            </li>
+        `).join('');
+
+        document.getElementById('orderVerifyCard').style.display = 'block';
+        document.getElementById('reader').style.display = 'none';
+
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear().then(() => { html5QrcodeScanner = null; });
+        }
+
+    } catch (err) {
+        console.error("Scan Error:", err);
+        showToast("Invalid QR Code", "error");
+        setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
+    } finally {
+        hideLoader();
+    }
+}
+
+async function confirmServe() {
+    if (!currentScannedOrderId) {
+        showToast("Error: No order ID found. Please re-scan.", "error");
+        return;
+    }
+
+    showLoader("Serving Order...");
+
+    try {
+        const token = sessionStorage.getItem('token');
+        const url = `${getBackendURL()}/api/staff/${currentScannedOrderId}/serve`;
+        
+        await axios.patch(url, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        showToast("Order Served Successfully!", "success");
+
+        document.getElementById('orderVerifyCard').style.display = 'none';
+        document.getElementById('reader').style.display = 'block';
+
+        currentScannedOrderId = null;
+        startScanner();
+
+    } catch (err) {
+        console.error("API Error:", err);
+        showToast(err.response?.data?.message || "Server Communication Error", "error");
+    } finally {
+        hideLoader();
+    }
+}
+
+// ==========================================
+// DATA FETCHERS
+// ==========================================
 async function loadPendingOrders() {
     const list = document.getElementById('pendingList');
     if (!list) return;
+
+    showLoader("Loading Pending Orders...");
 
     try {
         const token = sessionStorage.getItem('token');
@@ -72,31 +256,46 @@ async function loadPendingOrders() {
         }
 
         list.innerHTML = orders.map(order => {
-            const itemsSummary = order.items.map(i => `${i.quantity}x ${i.dish_name || i.dish}`).join(', ');
-            const orderTime = new Date(order.order_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const items = order.items || [];
+            const itemsSummary = items.map(i => {
+                const name = i.dish_name || i.dish || "Unknown Item";
+                return `${i.quantity || 1}x ${name}`;
+            }).join(', ');
+
+            const studentName = (order.user_id && typeof order.user_id === 'object') 
+                ? order.user_id.name 
+                : 'Student';
+
+            const orderTime = order.order_date 
+                ? new Date(order.order_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : '--:--';
 
             return `
-                <div class="queue-item-strip">
+                <div class="queue-item-strip" style="border-bottom: 1px solid var(--border); padding: 12px; display: flex; justify-content: space-between; align-items: center;">
                     <div class="queue-left">
-                        <span class="queue-id">#${order.order_id}</span>
-                        <div class="queue-student">${order.user_id?.name || 'Student'}</div>
-                        <div class="queue-items-text">${itemsSummary}</div>
+                        <span class="queue-id" style="font-weight: 800; color: var(--primary);">#${order.order_id || 'N/A'}</span>
+                        <div class="queue-student" style="font-weight: 600; color: var(--text-dark);">${studentName}</div>
+                        <div class="queue-items-text" style="font-size: 0.85rem; color: var(--text-gray);">${itemsSummary}</div>
                     </div>
                     <div class="queue-right">
-                        <span class="queue-time">${orderTime}</span>
+                        <span class="queue-time" style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">${orderTime}</span>
                     </div>
                 </div>
             `;
-        }).join('');
+        }).join('');;
     } catch (err) {
         console.error("Queue Error:", err);
+        showToast("Failed to load pending orders.", "error");
+    } finally {
+        hideLoader();
     }
 }
 
-// --- HISTORY: SERVED TODAY ---
 async function loadServedOrders() {
     const list = document.getElementById('recentlyServedList');
     if (!list) return;
+
+    showLoader("Loading Served History...");
 
     try {
         const token = sessionStorage.getItem('token');
@@ -124,168 +323,16 @@ async function loadServedOrders() {
         `).join('');
     } catch (err) {
         console.error("Served List Error:", err);
-    }
-}
-
-// ---  SCANNER LOGIC (FAST MOBILE CONFIG) ---
-function startScanner() {
-    const readerElement = document.getElementById('reader');
-    if (!readerElement || html5QrcodeScanner) return;
-
-    html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader", 
-        { 
-            fps: 15,
-            qrbox: { width: 250, height: 250 }, 
-            rememberLastUsedCamera: true,
-
-            formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-
-            videoConstraints: {
-                facingMode: "environment",
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            }
-        },
-        false // Turns off background logging to save processing power
-    );
-    
-    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-}
-
-// ---  SCANNER SUCCESS (LIVE DATABASE CHECK) ---
-async function onScanSuccess(decodedText) {
-    if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
-
-    showLoader("Verifying QR...");
-
-    try {
-        // Parse the QR code
-        const qrData = JSON.parse(decodedText);
-        const orderId = qrData.order_id;
-        
-        if (!orderId) throw new Error("Invalid Format");
-
-        const token = sessionStorage.getItem('token');
-        const res = await axios.get(`${getBackendURL()}/api/staff/order/${orderId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        const liveOrder = res.data.order;
-
-        if (liveOrder.order_status === 'served') {
-            hideLoader();
-            showToast(" This Order is Already Served!", true);
-            setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
-            return;
-        }
-
-        currentScannedOrderId = liveOrder.order_id;
-        
-        document.getElementById('dispOrderId').innerText = liveOrder.order_id;
-        document.getElementById('dispName').innerText = liveOrder.user_id?.name || 'Student';
-        
-
-        document.getElementById('dispItems').innerHTML = liveOrder.items.map(i => `
-            <li style="display: grid; grid-template-columns: 1fr 70px 80px; align-items: center; padding: 14px 12px; border-bottom: 1px solid #f0f0f0;">
-                <span style="color: #1f2937; font-weight: 600; font-size: 0.9rem;">
-                    ${i.dish_name || i.dish}
-                </span>
-                <span style="text-align: center; font-weight: 700; color: #4CAF50; font-size: 0.9rem;">
-                    ${i.quantity || i.qty}
-                </span>
-                <span style="text-align: right; background: #e8f5e9; color: #4CAF50; padding: 4px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 600; justify-self: end;">
-                    Ready
-                </span>
-            </li>
-        `).join('');
-
-        document.getElementById('orderVerifyCard').style.display = 'block';
-        document.getElementById('reader').style.display = 'none';
-
-        if (html5QrcodeScanner) {
-            html5QrcodeScanner.clear().then(() => { html5QrcodeScanner = null; });
-        }
-
-    } catch (err) {
-        console.error("Scan Error:", err);
-        showToast("Invalid QR Code", true);
-        setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 2000);
+        showToast("Failed to load served orders.", "error");
     } finally {
         hideLoader();
     }
 }
 
-function onScanFailure(error) { /* Routine failure - do nothing */ }
-
-// --- CONFIRM SERVE ---
-async function confirmServe() {
-    if (!currentScannedOrderId) {
-        showToast("Error: No order ID found. Please re-scan.", true);
-        return;
-    }
-
-    showLoader("Serving Order...");
-
-    const btn = document.querySelector('.btn-confirm');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-    try {
-        const token = sessionStorage.getItem('token');
-        const url = `${getBackendURL()}/api/staff/${currentScannedOrderId}/serve`;
-        
-        await axios.patch(url, {}, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        showToast("Order Served Successfully!");
-
-        document.getElementById('orderVerifyCard').style.display = 'none';
-        document.getElementById('reader').style.display = 'block';
-
-        currentScannedOrderId = null;
-
-        startScanner();
-        loadServedOrders(); 
-
-    } catch (err) {
-        console.error("API Error:", err);
-        showToast(err.response?.data?.message || "Server Communication Error", true);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-bell"></i> Confirm Food Served';
-        
-        hideLoader();
-    }
+// ==========================================
+// AUTHENTICATION
+// ==========================================
+function logout() {
+    sessionStorage.clear();
+    window.location.href = 'login.html';
 }
-
-// --- UTILS ---
-function showToast(m, isErr = false) {
-    const t = document.getElementById("toast");
-    if (!t) return;
-    
-    // Add a vibrate effect on error for mobile devices
-    if (isErr && navigator.vibrate) navigator.vibrate([200, 100, 200]);
-
-    t.innerHTML = `<i class="fas ${isErr ? 'fa-times-circle' : 'fa-check-circle'}"></i> ${m}`;
-    t.className = `toast show ${isErr ? 'error' : ''}`;
-    setTimeout(() => t.classList.remove("show"), 3000);
-}
-
-// --- LOADER CONTROLS ---
-function showLoader(text = "Processing...") {
-    const loader = document.getElementById('globalLoader');
-    const textEl = document.getElementById('loaderText');
-    if (loader && textEl) {
-        textEl.innerText = text;
-        loader.classList.add('active');
-    }
-}
-
-function hideLoader() {
-    const loader = document.getElementById('globalLoader');
-    if (loader) loader.classList.remove('active');
-}
-
-function logout() { sessionStorage.clear(); window.location.href = 'login.html'; }
